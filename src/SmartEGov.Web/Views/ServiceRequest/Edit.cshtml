@@ -1,0 +1,122 @@
+@model ServiceRequestDto
+@{
+    ViewData["Title"] = "Edit Service Request";
+    var maxSizeMB = ViewBag.MaxFileSizeMB as int? ?? 10;
+    var allowedExtensions = ViewBag.AllowedExtensions as string ?? "";
+    var allowedExtensionsAccept = ViewBag.AllowedExtensionsAccept as string ?? "";
+}
+
+<div class="lb-page-header">
+    <h2><i class="bi bi-pencil-square me-2"></i>Edit Service Request</h2>
+    <p>Update details or save your request as a draft.</p>
+</div>
+
+<div class="row">
+    <div class="col-lg-8">
+        <div class="lb-form-card">
+            <form asp-action="Edit" method="post" enctype="multipart/form-data">
+                <input asp-for="Id" type="hidden" />
+                <div asp-validation-summary="All" class="alert alert-danger"></div>
+
+                <div class="mb-3">
+                    <label asp-for="GovernmentServiceId" class="form-label">Government Service</label>
+                    <select asp-for="GovernmentServiceId" asp-items="@(ViewBag.Services as SelectList)" class="form-select">
+                        <option value="">-- Select a Service --</option>
+                    </select>
+                    <span asp-validation-for="GovernmentServiceId" class="text-danger small"></span>
+                </div>
+
+                <div id="requirements-section" class="mb-3" style="display:none;">
+                    <div class="card border-0" style="background:var(--lb-green-light);border-left:4px solid var(--lb-green)!important;">
+                        <div class="card-header bg-transparent border-0" style="color:var(--lb-green-dark);font-weight:700;">
+                            <i class="bi bi-file-earmark-text me-1"></i> Required Documents for this Service
+                        </div>
+                        <ul id="requirements-list" class="list-group list-group-flush">
+                        </ul>
+                    </div>
+                </div>
+
+                <div class="mb-3">
+                    <label asp-for="Notes" class="form-label">Notes / Additional Information</label>
+                    <textarea asp-for="Notes" class="form-control" rows="3" placeholder="Any extra details for the reviewing officer..."></textarea>
+                    <span asp-validation-for="Notes" class="text-danger small"></span>
+                </div>
+
+                <div class="mb-4">
+                    <label class="form-label"><i class="bi bi-paperclip me-1"></i>Attach Documents (optional)</label>
+                    <input type="file" name="documents" class="form-control" multiple accept="@allowedExtensionsAccept" />
+                    <div class="form-text">
+                        Max file size: @maxSizeMB MB. Allowed types: @allowedExtensions
+                    </div>
+                </div>
+
+                <div class="d-flex gap-2">
+                    <button type="submit" name="saveAsDraft" value="true" class="btn btn-outline-secondary">
+                        <i class="bi bi-save me-1"></i>Save as Draft
+                    </button>
+                    <button type="submit" class="btn btn-lb-primary">
+                        <i class="bi bi-send me-1"></i>Submit Request
+                    </button>
+                    <a asp-action="Details" asp-route-id="@Model.Id" class="btn btn-outline-secondary">
+                        <i class="bi bi-x-lg me-1"></i>Cancel
+                    </a>
+                </div>
+            </form>
+        </div>
+    </div>
+    <div class="col-lg-4">
+        <div class="lb-info-card">
+            <h6><i class="bi bi-lightbulb me-1"></i>Tips</h6>
+            <ul class="list-unstyled mb-0 small">
+                <li class="mb-2"><i class="bi bi-check-circle text-success me-1"></i> You can save progress and complete later.</li>
+                <li class="mb-2"><i class="bi bi-file-earmark-arrow-up text-primary me-1"></i> Upload all required documents before submission.</li>
+                <li class="mb-2"><i class="bi bi-clock-history text-warning me-1"></i> Submitting will start the review workflow.</li>
+                <li><i class="bi bi-bell text-info me-1"></i> Notifications are sent on status changes.</li>
+            </ul>
+        </div>
+    </div>
+</div>
+
+@section Scripts {
+    <partial name="_ValidationScriptsPartial" />
+    <script>
+        document.getElementById('GovernmentServiceId').addEventListener('change', function () {
+            var serviceId = this.value;
+            var section = document.getElementById('requirements-section');
+            var list = document.getElementById('requirements-list');
+            list.innerHTML = '';
+
+            if (!serviceId) {
+                section.style.display = 'none';
+                return;
+            }
+
+            fetch('@Url.Action("GetRequiredDocuments", "ServiceRequest")?serviceId=' + serviceId)
+                .then(function (response) {
+                    if (!response.ok) throw new Error('Failed to load requirements');
+                    return response.json();
+                })
+                .then(function (data) {
+                    if (data.length === 0) {
+                        list.innerHTML = '<li class="list-group-item text-muted">No specific documents required for this service.</li>';
+                    } else {
+                        data.forEach(function (doc) {
+                            var li = document.createElement('li');
+                            li.className = 'list-group-item d-flex justify-content-between align-items-start';
+                            var badge = doc.isMandatory
+                                ? '<span class="badge lb-rejected">Required</span>'
+                                : '<span class="badge lb-cancelled">Optional</span>';
+                            li.innerHTML = '<div><strong>' + doc.documentName + '</strong>'
+                                + (doc.description ? '<br/><small class="text-muted">' + doc.description + '</small>' : '')
+                                + '</div>' + badge;
+                            list.appendChild(li);
+                        });
+                    }
+                    section.style.display = 'block';
+                })
+                .catch(function () {
+                    section.style.display = 'none';
+                });
+        });
+    </script>
+}

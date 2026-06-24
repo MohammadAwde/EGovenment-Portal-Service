@@ -1,0 +1,46 @@
+﻿@model RegisterDto
+@{
+    ViewData["Title"] = "Register";
+}
+<div class="lb-auth-wrapper">
+    <div class="lb-auth-card">
+        <div class="auth-header">
+            <img src="~/images/cedar.svg" alt="" class="cedar-icon" style="color:#006233;" />
+            <h4>Create Your Account</h4>
+            <p>Register for the Lebanese E-Government Portal</p>
+        </div>
+        <form asp-action="Register" method="post">
+            <div asp-validation-summary="ModelOnly" class="text-danger mb-3"></div>
+            <div class="mb-3">
+                <label asp-for="FullName" class="form-label"><i class="bi bi-person me-1"></i>Full Name</label>
+                <input asp-for="FullName" class="form-control" placeholder="Ahmad Hasan" />
+                <span asp-validation-for="FullName" class="text-danger small"></span>
+            </div>
+            <div class="mb-3">
+                <label asp-for="Email" class="form-label"><i class="bi bi-envelope me-1"></i>Email</label>
+                <input asp-for="Email" class="form-control" placeholder="you@example.com" />
+                <span asp-validation-for="Email" class="text-danger small"></span>
+            </div>
+            <div class="mb-3">
+                <label asp-for="Password" class="form-label"><i class="bi bi-lock me-1"></i>Password</label>
+                <input asp-for="Password" class="form-control" placeholder="••••••••" />
+                <span asp-validation-for="Password" class="text-danger small"></span>
+            </div>
+            <div class="mb-3">
+                <label asp-for="ConfirmPassword" class="form-label"><i class="bi bi-lock-fill me-1"></i>Confirm Password</label>
+                <input asp-for="ConfirmPassword" class="form-control" placeholder="••••••••" />
+                <span asp-validation-for="ConfirmPassword" class="text-danger small"></span>
+            </div>
+            <button type="submit" class="btn btn-lb-primary">
+                <i class="bi bi-person-plus me-1"></i> Create Account
+            </button>
+        </form>
+        <div class="text-center mt-3">
+            <span class="text-muted small">Already have an account?</span>
+            <a asp-action="Login" class="small fw-semibold">Sign in</a>
+        </div>
+    </div>
+</div>
+@section Scripts {
+    <partial name="_ValidationScriptsPartial" />
+}

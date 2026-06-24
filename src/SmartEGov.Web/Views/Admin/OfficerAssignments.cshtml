@@ -1,0 +1,133 @@
+@model IEnumerable<SmartEGov.Domain.Entities.OfficerServiceAssignment>
+@{
+    ViewData["Title"] = "Officer Service Assignments";
+    var officers = ViewBag.Officers as IList<SmartEGov.Domain.Entities.ApplicationUser> ?? new List<SmartEGov.Domain.Entities.ApplicationUser>();
+    var services = ViewBag.Services as IEnumerable<SmartEGov.Domain.Entities.GovernmentService> ?? Enumerable.Empty<SmartEGov.Domain.Entities.GovernmentService>();
+    var assignedOfficerIds = Model.Select(a => a.OfficerId).ToHashSet();
+}
+
+<div class="lb-page-header">
+    <h2><i class="bi bi-person-gear me-2"></i>Officer Service Assignments</h2>
+    <p>Assign each officer to <strong>one</strong> government service. Reassigning will remove their previous assignment.</p>
+</div>
+
+@if (TempData["Success"] != null)
+{
+    <div class="alert alert-success alert-dismissible fade show">
+        <i class="bi bi-check-circle me-1"></i>@TempData["Success"]
+        <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+    </div>
+}
+@if (TempData["Error"] != null)
+{
+    <div class="alert alert-danger alert-dismissible fade show">
+        <i class="bi bi-exclamation-triangle me-1"></i>@TempData["Error"]
+        <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+    </div>
+}
+
+<div class="lb-form-card mb-4">
+    <h6 class="text-uppercase fw-bold mb-3" style="color:var(--lb-green-dark);letter-spacing:.04em;">
+        <i class="bi bi-person-plus me-1"></i>Assign Officer to Service
+    </h6>
+    <form asp-action="AssignOfficerToService" method="post" class="row g-3 align-items-end" id="assignForm">
+        <div class="col-md-5">
+            <label class="form-label">Officer</label>
+            <select name="officerId" id="officerSelect" class="form-select" required>
+                <option value="">-- Select Officer --</option>
+                @foreach (var officer in officers)
+                {
+                    var currentService = Model.FirstOrDefault(a => a.OfficerId == officer.Id);
+                    var label = currentService != null
+                        ? $"{officer.FullName} ({officer.Email}) — currently: {currentService.GovernmentService?.Name}"
+                        : $"{officer.FullName} ({officer.Email})";
+                    <option value="@officer.Id" data-assigned="@(currentService != null ? "true" : "false")">@label</option>
+                }
+            </select>
+        </div>
+        <div class="col-md-5">
+            <label class="form-label">Government Service</label>
+            <select name="governmentServiceId" class="form-select" required>
+                <option value="">-- Select Service --</option>
+                @foreach (var service in services)
+                {
+                    <option value="@service.Id">@service.Name</option>
+                }
+            </select>
+        </div>
+        <div class="col-md-2">
+            <button type="submit" class="btn btn-lb-primary w-100">
+                <i class="bi bi-check-lg me-1"></i>Assign
+            </button>
+        </div>
+    </form>
+    <div id="reassignWarning" class="alert alert-warning mt-3 d-none">
+        <i class="bi bi-exclamation-triangle me-1"></i>
+        This officer is already assigned to another service. Assigning them here will <strong>remove</strong> their current assignment.
+    </div>
+</div>
+
+<div class="card">
+    <div class="card-header d-flex justify-content-between align-items-center">
+        <strong><i class="bi bi-list-check me-1"></i>Current Assignments</strong>
+        <span class="badge lb-submitted">@Model.Count()</span>
+    </div>
+    <div class="card-body p-0">
+        @if (Model.Any())
+        {
+            <div class="table-responsive">
+                <table class="table table-hover mb-0">
+                    <thead>
+                        <tr>
+                            <th>Officer</th>
+                            <th>Service</th>
+                            <th>Assigned At</th>
+                            <th>Actions</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        @foreach (var assignment in Model)
+                        {
+                            <tr>
+                                <td><i class="bi bi-person me-1 text-muted"></i>@assignment.Officer?.FullName</td>
+                                <td><span class="badge lb-approved">@assignment.GovernmentService?.Name</span></td>
+                                <td><small><i class="bi bi-clock me-1"></i>@assignment.AssignedAt.ToString("g")</small></td>
+                                <td>
+                                    <form asp-action="RemoveOfficerAssignment" method="post" class="d-inline">
+                                        <input type="hidden" name="id" value="@assignment.Id" />
+                                        <button type="submit" class="btn btn-sm btn-outline-danger"
+                                                onclick="return confirm('Remove this assignment? The officer will no longer see any pending requests.')">
+                                            <i class="bi bi-trash me-1"></i>Remove
+                                        </button>
+                                    </form>
+                                </td>
+                            </tr>
+                        }
+                    </tbody>
+                </table>
+            </div>
+        }
+        else
+        {
+            <div class="lb-empty-state">
+                <i class="bi bi-person-x"></i>
+                <p>No officer assignments yet. Use the form above to assign officers to services.</p>
+            </div>
+        }
+    </div>
+</div>
+
+<script>
+    (function () {
+        var sel = document.getElementById('officerSelect');
+        var warn = document.getElementById('reassignWarning');
+        sel.addEventListener('change', function () {
+            var opt = sel.options[sel.selectedIndex];
+            if (opt && opt.getAttribute('data-assigned') === 'true') {
+                warn.classList.remove('d-none');
+            } else {
+                warn.classList.add('d-none');
+            }
+        });
+    })();
+</script>

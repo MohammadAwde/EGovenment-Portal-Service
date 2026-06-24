@@ -1,0 +1,55 @@
+@model CitizenDto
+@{
+    ViewData["Title"] = "My Profile";
+}
+
+<div class="lb-page-header d-flex justify-content-between align-items-center flex-wrap gap-2">
+    <div>
+        <h2><i class="bi bi-person-circle me-2"></i>My Profile</h2>
+        <p>Your personal citizen information on file.</p>
+    </div>
+    <div class="lb-page-actions d-flex gap-2">
+        <a asp-action="Edit" class="btn btn-lb-gold">
+            <i class="bi bi-pencil-square me-1"></i>Edit Profile
+        </a>
+        <a asp-controller="ServiceRequest" asp-action="Index" class="btn btn-lb-outline">
+            <i class="bi bi-file-earmark-text me-1"></i>My Requests
+        </a>
+    </div>
+</div>
+
+<div class="row">
+    <div class="col-lg-8">
+        <div class="lb-form-card">
+            <dl class="lb-detail-grid row mb-0">
+                <dt class="col-sm-4"><i class="bi bi-card-text me-1 text-muted"></i>National ID</dt>
+                <dd class="col-sm-8">@Model.NationalId</dd>
+
+                <dt class="col-sm-4"><i class="bi bi-person me-1 text-muted"></i>First Name</dt>
+                <dd class="col-sm-8">@Model.FirstName</dd>
+
+                <dt class="col-sm-4"><i class="bi bi-person me-1 text-muted"></i>Last Name</dt>
+                <dd class="col-sm-8">@Model.LastName</dd>
+
+                <dt class="col-sm-4"><i class="bi bi-calendar-event me-1 text-muted"></i>Date of Birth</dt>
+                <dd class="col-sm-8">@Model.DateOfBirth.ToShortDateString()</dd>
+
+                <dt class="col-sm-4"><i class="bi bi-geo-alt me-1 text-muted"></i>Address</dt>
+                <dd class="col-sm-8">@Model.Address</dd>
+
+                <dt class="col-sm-4"><i class="bi bi-telephone me-1 text-muted"></i>Phone</dt>
+                <dd class="col-sm-8">@Model.PhoneNumber</dd>
+            </dl>
+        </div>
+    </div>
+    <div class="col-lg-4">
+        <div class="lb-info-card">
+            <h6><i class="bi bi-info-circle me-1"></i>Profile Info</h6>
+            <ul class="list-unstyled mb-0 small">
+                <li class="mb-2"><i class="bi bi-shield-check text-success me-1"></i> Your profile data is securely stored.</li>
+                <li class="mb-2"><i class="bi bi-pencil text-primary me-1"></i> Click <strong>Edit Profile</strong> to update your details.</li>
+                <li><i class="bi bi-file-earmark-text text-warning me-1"></i> Keep your info up to date for smooth service processing.</li>
+            </ul>
+        </div>
+    </div>
+</div>

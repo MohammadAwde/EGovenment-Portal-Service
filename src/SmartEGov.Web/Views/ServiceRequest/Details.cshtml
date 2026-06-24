@@ -1,0 +1,704 @@
+@model ServiceRequestDto
+@{
+    ViewData["Title"] = "Service Request Details";
+    var documents = ViewBag.Documents as IEnumerable<DocumentDto> ?? Enumerable.Empty<DocumentDto>();
+    var workflowSteps = ViewBag.WorkflowSteps as IEnumerable<ApprovalStepDto> ?? Enumerable.Empty<ApprovalStepDto>();
+    var allowedTransitions = ViewBag.AllowedTransitions as IEnumerable<string> ?? Enumerable.Empty<string>();
+    var maxSizeMB = ViewBag.MaxFileSizeMB as int? ?? 10;
+    var allowedExtensions = ViewBag.AllowedExtensions as string ?? "";
+    var allowedExtensionsAccept = ViewBag.AllowedExtensionsAccept as string ?? "";
+    var isPaid = ViewBag.IsPaid as bool? ?? false;
+    var serviceFee = ViewBag.ServiceFee as decimal? ?? 0m;
+    var payments = ViewBag.Payments as IEnumerable<PaymentDto> ?? Enumerable.Empty<PaymentDto>();
+    var nearestLocation = ViewBag.NearestLocation as NearestLocationDto;
+}
+
+            @* Show missing required documents to officers and allow requesting more info *@
+            @if (User.IsInRole("Officer") || User.IsInRole("Admin"))
+            {
+                var missing = ViewBag.MissingRequiredDocuments as List<string> ?? new List<string>();
+                if (missing.Any())
+                {
+                    <hr class="my-3" />
+                    <div class="alert alert-warning">
+                        <strong>Missing required documents:</strong>
+                        <ul class="mb-0 mt-2">
+                            @foreach (var m in missing)
+                            {
+                                <li>@m</li>
+                            }
+                        </ul>
+                    </div>
+
+                    <form asp-action="RequestMoreInfo" method="post" class="mb-2">
+                        <input type="hidden" name="id" value="@Model.Id" />
+                        <div class="mb-2">
+                            <label class="form-label">Message to citizen (optional)</label>
+                            <textarea name="message" class="form-control" rows="2" placeholder="List missing items or additional instructions..."></textarea>
+                        </div>
+                        <button type="submit" class="btn btn-warning">
+                            <i class="bi bi-envelope me-1"></i>Request More Information
+                        </button>
+                    </form>
+                }
+                else
+                {
+                    <div class="alert alert-success">
+                        <i class="bi bi-check-circle me-1"></i>All required documents are present.
+                    </div>
+                }
+            }
+
+<div class="lb-page-header d-flex justify-content-between align-items-center flex-wrap gap-2">
+    <div>
+        <h2><i class="bi bi-file-earmark-text me-2"></i>@Model.ReferenceNumber</h2>
+        <p>Service request details and workflow progress.</p>
+    </div>
+    <div class="lb-page-actions">
+        <a asp-action="Index" class="btn btn-lb-outline">
+            <i class="bi bi-arrow-left me-1"></i>Back to List
+        </a>
+    </div>
+</div>
+
+<div class="row">
+    <div class="col-md-8">
+        <div class="lb-form-card mb-3">
+            <h6 class="text-uppercase fw-bold mb-3" style="color:var(--lb-green-dark);letter-spacing:.04em;">
+                <i class="bi bi-info-circle me-1"></i>Request Details
+            </h6>
+            <dl class="lb-detail-grid row mb-0">
+                <dt class="col-sm-4">Reference Number</dt>
+                <dd class="col-sm-8"><code>@Model.ReferenceNumber</code></dd>
+
+                <dt class="col-sm-4">Service</dt>
+                <dd class="col-sm-8">@Model.GovernmentServiceName</dd>
+
+                <dt class="col-sm-4">Citizen</dt>
+                <dd class="col-sm-8">@Model.CitizenName</dd>
+
+                <dt class="col-sm-4">Status</dt>
+                <dd class="col-sm-8">
+                    @{
+                        var badgeClass = Model.Status switch
+                        {
+                            ServiceRequestStatus.Submitted => "lb-submitted",
+                            ServiceRequestStatus.UnderReview => "lb-review",
+                            ServiceRequestStatus.PendingInformation => "lb-pending-info",
+                            ServiceRequestStatus.PendingPayment => "lb-pending-payment",
+                            ServiceRequestStatus.Approved => "lb-approved",
+                            ServiceRequestStatus.Rejected => "lb-rejected",
+                            ServiceRequestStatus.Completed => "lb-completed",
+                            ServiceRequestStatus.Cancelled => "lb-cancelled",
+                            _ => "bg-secondary"
+                        };
+                    }
+                    <span class="badge @badgeClass">@Model.Status</span>
+                </dd>
+
+                <dt class="col-sm-4">Submitted</dt>
+                <dd class="col-sm-8">@(Model.SubmittedAt?.ToString("g") ?? "-")</dd>
+
+                @if (Model.CompletedAt.HasValue)
+                {
+                    <dt class="col-sm-4">Completed</dt>
+                    <dd class="col-sm-8">@Model.CompletedAt.Value.ToString("g")</dd>
+                }
+
+                <dt class="col-sm-4">Notes</dt>
+                <dd class="col-sm-8">@(string.IsNullOrEmpty(Model.Notes) ? "—" : Model.Notes)</dd>
+            </dl>
+        </div>
+
+        @if (User.IsInRole("Officer") || User.IsInRole("Admin"))
+        {
+            <div class="lb-form-card mb-3">
+                <h6 class="text-uppercase fw-bold mb-3" style="color:var(--lb-green-dark);letter-spacing:.04em;">
+                    <i class="bi bi-arrow-repeat me-1"></i>Update Status
+                </h6>
+                @if (allowedTransitions.Any())
+                {
+                    <form asp-action="UpdateStatus" method="post" enctype="multipart/form-data">
+                        <input type="hidden" name="id" value="@Model.Id" />
+                        <div class="row">
+                            <div class="col-md-4 mb-2">
+                                <select name="status" id="statusSelect" class="form-select">
+                                    @foreach (var transition in allowedTransitions)
+                                    {
+                                        <option value="@transition">@transition</option>
+                                    }
+                                </select>
+                            </div>
+                            <div class="col-md-5 mb-2">
+                                <input type="text" name="comments" class="form-control" placeholder="Comments (optional)" />
+                            </div>
+                            <div class="col-md-3 mb-2">
+                                <button type="submit" class="btn btn-lb-gold w-100">
+                                    <i class="bi bi-check2 me-1"></i>Update
+                                </button>
+                            </div>
+                        </div>
+                        <div id="completionFileSection" class="mt-3" style="display:none;">
+                            <div class="alert alert-info py-2 mb-2">
+                                <i class="bi bi-info-circle me-1"></i>
+                                You must upload the completed service document for the citizen.
+                            </div>
+                            <div class="mb-2">
+                                <label class="form-label fw-bold">Completion File <span class="text-danger">*</span></label>
+                                <input type="file" name="completionFile" id="completionFileInput" class="form-control"
+                                       accept="@allowedExtensionsAccept" />
+                                <div class="form-text">
+                                    Max: @maxSizeMB MB. Types: @allowedExtensions
+                                </div>
+                            </div>
+                        </div>
+                    </form>
+                    <script>
+                        (function () {
+                            var sel = document.getElementById('statusSelect');
+                            var sec = document.getElementById('completionFileSection');
+                            var inp = document.getElementById('completionFileInput');
+                            function toggle() {
+                                if (sel.value === 'Completed') {
+                                    sec.style.display = '';
+                                    inp.setAttribute('required', 'required');
+                                } else {
+                                    sec.style.display = 'none';
+                                    inp.removeAttribute('required');
+                                    inp.value = '';
+                                }
+                            }
+                            sel.addEventListener('change', toggle);
+                            toggle();
+                        })();
+                    </script>
+                }
+
+<!-- Replace confirmation modal -->
+<div id="replaceConfirmModal" style="display:none; position:fixed; inset:0; background:rgba(0,0,0,0.4); z-index:2000; align-items:center; justify-content:center;">
+    <div style="background:#fff; max-width:520px; width:90%; margin:0 auto; border-radius:6px; padding:1.25rem; box-shadow:0 6px 24px rgba(0,0,0,.25);">
+        <h5 class="mb-2">Confirm Replace Document</h5>
+        <p class="small text-muted">You are about to replace the document with the following file:</p>
+        <p id="replaceFileName" style="word-break:break-all; font-weight:600;">file.pdf</p>
+        <div class="d-flex justify-content-end mt-3">
+            <button type="button" id="replaceCancelBtn" class="btn btn-outline-secondary me-2">Cancel</button>
+            <button type="button" id="replaceConfirmBtn" class="btn btn-lb-primary">Replace</button>
+        </div>
+    </div>
+</div>
+
+<script>
+    // modal handlers
+    (function(){
+        var modal = document.getElementById('replaceConfirmModal');
+        if(!modal) return;
+        var confirmBtn = document.getElementById('replaceConfirmBtn');
+        var cancelBtn = document.getElementById('replaceCancelBtn');
+
+        confirmBtn.addEventListener('click', function(){
+            // use pendingReplace set earlier
+            if(typeof pendingReplace !== 'undefined' && pendingReplace.formId && pendingReplace.file){
+                performReplaceUpload(pendingReplace.formId, pendingReplace.file);
+                // clear and hide
+                pendingReplace.file = null;
+                // clear the input value
+                try{ var inp = document.getElementById(pendingReplace.inputId); if(inp) inp.value = ''; } catch(e){}
+            }
+            modal.style.display = 'none';
+        });
+
+        cancelBtn.addEventListener('click', function(){
+            // clear pending and hide modal
+            if(typeof pendingReplace !== 'undefined'){
+                try{ var inp = document.getElementById(pendingReplace.inputId); if(inp) inp.value = ''; } catch(e){}
+                pendingReplace.file = null;
+            }
+            modal.style.display = 'none';
+        });
+    })();
+</script>
+                else
+                {
+                    <p class="text-muted mb-1"><i class="bi bi-check-circle me-1"></i>No further status transitions are available.</p>
+                }
+                @if (workflowSteps.Any())
+                {
+                    <a asp-controller="Workflow" asp-action="Steps" asp-route-serviceRequestId="@Model.Id"
+                       class="btn btn-sm btn-outline-secondary mt-2">
+                        <i class="bi bi-diagram-3 me-1"></i>View Workflow Steps
+                    </a>
+                }
+            </div>
+        }
+
+        @if (User.IsInRole("Citizen") && Model.Status == ServiceRequestStatus.Submitted)
+        {
+            <div class="lb-form-card mb-3" style="border-left:4px solid var(--lb-red);">
+                <form asp-action="Cancel" method="post"
+                      onsubmit="return confirm('Are you sure you want to cancel this request? This action cannot be undone.');">
+                    <input type="hidden" name="id" value="@Model.Id" />
+                    <button type="submit" class="btn btn-outline-danger w-100">
+                        <i class="bi bi-x-circle me-1"></i>Cancel Request
+                    </button>
+                </form>
+            </div>
+        }
+
+        @if (workflowSteps.Any())
+        {
+            <div class="lb-form-card mb-3">
+                <h6 class="text-uppercase fw-bold mb-3" style="color:var(--lb-green-dark);letter-spacing:.04em;">
+                    <i class="bi bi-diagram-3 me-1"></i>Approval Workflow Progress
+                </h6>
+                @foreach (var step in workflowSteps)
+                {
+                    var stepDotClass = step.Status switch
+                    {
+                        ApprovalStatus.Approved => "approved",
+                        ApprovalStatus.Rejected => "rejected",
+                        _ => step.Id == workflowSteps.FirstOrDefault(s => s.Status == ApprovalStatus.Pending)?.Id ? "active" : ""
+                    };
+                    var stepBadge = step.Status switch
+                    {
+                        ApprovalStatus.Pending => "lb-review",
+                        ApprovalStatus.Approved => "lb-approved",
+                        ApprovalStatus.Rejected => "lb-rejected",
+                        _ => "bg-secondary"
+                    };
+                    <div class="lb-timeline-step">
+                        <div class="lb-step-dot @stepDotClass">
+                            @if (step.Status == ApprovalStatus.Approved)
+                            {
+                                <i class="bi bi-check"></i>
+                            }
+                            else if (step.Status == ApprovalStatus.Rejected)
+                            {
+                                <i class="bi bi-x"></i>
+                            }
+                            else
+                            {
+                                <span>@step.StepOrder</span>
+                            }
+                        </div>
+                        <div class="d-flex justify-content-between align-items-start flex-wrap gap-2">
+                            <div>
+                                <strong>@step.StepName</strong>
+                                <span class="badge @stepBadge ms-2">@step.Status</span>
+                                <div class="text-muted small mt-1">
+                                    Officer: @(step.OfficerName ?? "—") &middot; @(step.ActionDate?.ToString("g") ?? "Pending")
+                                </div>
+                                @if (!string.IsNullOrEmpty(step.Comments))
+                                {
+                                    <div class="text-muted small fst-italic mt-1">@step.Comments</div>
+                                }
+                            </div>
+                            @if (!string.IsNullOrEmpty(step.OfficerSignaturePath))
+                            {
+                                <img src="@step.OfficerSignaturePath" alt="Signature"
+                                     class="border rounded bg-white p-1" style="max-height: 40px; max-width: 120px;" />
+                            }
+                        </div>
+                    </div>
+                }
+            </div>
+        }
+    </div>
+
+    <div class="col-md-4">
+        @if (!string.IsNullOrEmpty(Model.CompletionFilePath))
+        {
+            <div class="lb-form-card mb-3" style="border-left:4px solid var(--lb-green);">
+                <h6 class="text-uppercase fw-bold mb-3" style="color:var(--lb-green);letter-spacing:.04em;">
+                    <i class="bi bi-file-earmark-check me-1"></i>Completed Document
+                </h6>
+                <p class="small text-muted mb-2">The final document for this service request is ready.</p>
+                <dl class="lb-detail-grid row mb-2">
+                    <dt class="col-sm-4">File</dt>
+                    <dd class="col-sm-8 text-truncate" title="@Model.CompletionFileName">@Model.CompletionFileName</dd>
+                </dl>
+                <a asp-action="DownloadCompletionFile" asp-route-id="@Model.Id"
+                   class="btn btn-lb-primary w-100">
+                    <i class="bi bi-download me-1"></i>Download Completed File
+                </a>
+            </div>
+        }
+
+        @if (serviceFee > 0)
+        {
+            <div class="lb-form-card mb-3">
+                <h6 class="text-uppercase fw-bold mb-3" style="color:var(--lb-green-dark);letter-spacing:.04em;">
+                    <i class="bi bi-credit-card me-1"></i>Payment
+                </h6>
+                <dl class="lb-detail-grid row mb-2">
+                    <dt class="col-sm-5">Service Fee</dt>
+                    <dd class="col-sm-7"><strong>@serviceFee.ToString("N0") LBP</strong></dd>
+
+                    <dt class="col-sm-5">Status</dt>
+                    <dd class="col-sm-7">
+                        @if (isPaid)
+                        {
+                            <span class="badge lb-paid">Paid</span>
+                        }
+                        else
+                        {
+                            <span class="badge lb-unpaid">Unpaid</span>
+                        }
+                    </dd>
+                </dl>
+
+                @if (isPaid)
+                {
+                    var completedPayment = payments.FirstOrDefault(p => p.Status == PaymentStatus.Completed);
+                    if (completedPayment != null)
+                    {
+                        <div class="small text-muted mb-2">
+                            Txn: <code>@completedPayment.TransactionNumber</code><br />
+                            Paid: @completedPayment.CompletedAt?.ToString("g")
+                        </div>
+                        <a asp-controller="Payment" asp-action="Receipt" asp-route-paymentId="@completedPayment.Id"
+                           class="btn btn-sm btn-outline-primary w-100">
+                            <i class="bi bi-receipt me-1"></i>View Receipt
+                        </a>
+                    }
+                }
+                else if (User.IsInRole("Citizen"))
+                {
+                    var pendingPayment = payments.FirstOrDefault(p => p.Status == PaymentStatus.Pending);
+                    if (pendingPayment != null)
+                    {
+                        <a asp-controller="Payment" asp-action="Process" asp-route-paymentId="@pendingPayment.Id"
+                           class="btn btn-lb-gold w-100">
+                            <i class="bi bi-credit-card me-1"></i>Complete Payment
+                        </a>
+                    }
+                    else
+                    {
+                        <a asp-controller="Payment" asp-action="Pay" asp-route-serviceRequestId="@Model.Id"
+                           class="btn btn-lb-primary w-100">
+                            <i class="bi bi-wallet2 me-1"></i>Pay Now
+                        </a>
+                    }
+                }
+            </div>
+        }
+
+        <div class="lb-form-card mb-3">
+            <div class="d-flex justify-content-between align-items-center mb-3">
+                <h6 class="text-uppercase fw-bold mb-0" style="color:var(--lb-green-dark);letter-spacing:.04em;">
+                    <i class="bi bi-folder me-1"></i>Supporting Documents
+                </h6>
+                <span class="badge lb-submitted">@documents.Count()</span>
+            </div>
+            
+            @if (documents.Any())
+            {
+                <div class="alert alert-info py-2 mb-3" role="alert">
+                    <i class="bi bi-info-circle me-2"></i>
+                    <small>All uploaded documents have been scanned for security. <strong>@documents.Count()</strong> document@(documents.Count() != 1 ? "s" : "") attached.</small>
+                </div>
+                
+                <ul class="list-group list-group-flush mb-3">
+                    @foreach (var doc in documents)
+                    {
+                        <li class="list-group-item px-0 py-2">
+                            <div class="d-flex justify-content-between align-items-start">
+                                <div class="me-2" style="min-width: 0; flex-grow: 1;">
+                                    <div class="d-flex align-items-center">
+                                        <i class="bi bi-file-earmark me-2 text-primary"></i>
+                                        <a asp-action="DownloadDocument" asp-route-id="@doc.Id"
+                                           class="text-decoration-none text-truncate" title="@doc.FileName">
+                                            <strong>@doc.FileName</strong>
+                                        </a>
+                                    </div>
+                                    <small class="text-muted d-block ms-4">
+                                        @FormatFileSize(doc.FileSize) &bullet; Uploaded @doc.UploadedAt.ToString("MMM dd, yyyy h:mm tt")
+                                    </small>
+                                </div>
+                                <div class="btn-group btn-group-sm flex-shrink-0 ms-2">
+                                    <a asp-action="DownloadDocument" asp-route-id="@doc.Id"
+                                       class="btn btn-outline-primary" title="Download document">
+                                        <i class="bi bi-download"></i>
+                                    </a>
+            @if (User.IsInRole("Citizen") && (Model.Status == ServiceRequestStatus.Draft || Model.Status == ServiceRequestStatus.Submitted || Model.Status == ServiceRequestStatus.PendingInformation))
+                                    {
+                                        <form asp-action="DeleteDocument" method="post" class="d-inline"
+                                              onsubmit="return confirm('Delete this document? You can upload a new version.');">
+                                            <input type="hidden" name="id" value="@doc.Id" />
+                                            <input type="hidden" name="serviceRequestId" value="@Model.Id" />
+                                            <button type="submit" class="btn btn-outline-danger" title="Delete">
+                                                <i class="bi bi-trash"></i>
+                                            </button>
+                                        </form>
+                                        <form asp-action="ReplaceDocument" method="post" enctype="multipart/form-data" class="d-inline" id="replaceForm-@doc.Id">
+                                            @Html.AntiForgeryToken()
+                                            <input type="hidden" name="id" value="@doc.Id" />
+                                            <input type="hidden" name="serviceRequestId" value="@Model.Id" />
+                                            <input type="file" name="files" id="replaceInput-@doc.Id" class="d-none" multiple />
+                                            <button type="button" class="btn btn-outline-secondary" title="Replace"
+                                                    onclick="document.getElementById('replaceInput-@doc.Id').click();">
+                                                <i class="bi bi-arrow-clockwise"></i>
+                                            </button>
+                                        </form>
+                                    }
+                                    @if (User.IsInRole("Admin"))
+                                    {
+                                        <form asp-action="DeleteDocument" method="post" class="d-inline"
+                                              onsubmit="return confirm('Delete this document?');">
+                                            <input type="hidden" name="id" value="@doc.Id" />
+                                            <input type="hidden" name="serviceRequestId" value="@Model.Id" />
+                                            <button type="submit" class="btn btn-outline-danger" title="Delete">
+                                                <i class="bi bi-trash"></i>
+                                            </button>
+                                        </form>
+                                    }
+                                </div>
+                            </div>
+                        </li>
+                    }
+                </ul>
+            }
+            else
+            {
+                <div class="text-center py-4">
+                    <i class="bi bi-folder2-open text-muted" style="font-size:2.5rem;"></i>
+                    <p class="text-muted small mt-2">No documents uploaded yet.</p>
+                </div>
+            }
+
+            @if (User.IsInRole("Citizen") && (Model.Status == ServiceRequestStatus.Draft || Model.Status == ServiceRequestStatus.Submitted))
+            {
+                <hr class="my-3" />
+                <div class="card border-2 border-dashed p-3 text-center bg-light" id="uploadDropZone" style="cursor:pointer;border-color:#dee2e6!important;">
+                    <input type="file" id="uploadFileInput" class="form-control d-none" multiple 
+                           accept="@allowedExtensionsAccept" name="files" />
+                    <div class="mb-2">
+                        <i class="bi bi-cloud-arrow-up text-muted" style="font-size:1.8rem;"></i>
+                    </div>
+                    <p class="mb-1 small"><strong>Drag files here or click to upload</strong></p>
+                    <p class="text-muted mb-0 small">Max @maxSizeMB MB per file | @allowedExtensions</p>
+                </div>
+
+                <form asp-action="UploadDocument" method="post" enctype="multipart/form-data" id="uploadForm" style="display:none;">
+                    @Html.AntiForgeryToken()
+                    <input type="hidden" name="serviceRequestId" value="@Model.Id" />
+                </form>
+
+                <div id="uploadProgress" class="mt-3" style="display:none;">
+                    <div class="progress mb-2">
+                        <div class="progress-bar progress-bar-striped progress-bar-animated" id="progressBar" style="width:0%"></div>
+                    </div>
+                    <p class="small text-muted">Uploading documents...</p>
+                </div>
+            }
+            else if (User.IsInRole("Citizen") && Model.Status == ServiceRequestStatus.Draft)
+            {
+                <div class="alert alert-warning py-2 mt-3 mb-0" role="alert">
+                    <i class="bi bi-exclamation-triangle me-2"></i>
+                    <small>Submit your draft to enable document management. You can still add documents before submission.</small>
+                </div>
+            }
+        </div>
+
+        @if (nearestLocation != null)
+        {
+            <div class="lb-form-card mb-3" style="border-left:4px solid var(--lb-gold);">
+                <h6 class="text-uppercase fw-bold mb-3" style="color:var(--lb-green-dark);letter-spacing:.04em;">
+                    <i class="bi bi-geo-alt-fill me-1"></i>Nearest Service Location
+                </h6>
+                <dl class="lb-detail-grid row mb-2">
+                    <dt class="col-sm-5">Branch</dt>
+                    <dd class="col-sm-7">@nearestLocation.BranchName</dd>
+
+                    <dt class="col-sm-5">Department</dt>
+                    <dd class="col-sm-7">@nearestLocation.DepartmentName</dd>
+
+                    <dt class="col-sm-5">City</dt>
+                    <dd class="col-sm-7">@nearestLocation.City</dd>
+
+                    <dt class="col-sm-5">Address</dt>
+                    <dd class="col-sm-7">@nearestLocation.Address</dd>
+
+                    @if (!string.IsNullOrEmpty(nearestLocation.PhoneNumber))
+                    {
+                        <dt class="col-sm-5">Phone</dt>
+                        <dd class="col-sm-7">
+                            <a href="tel:@nearestLocation.PhoneNumber">@nearestLocation.PhoneNumber</a>
+                        </dd>
+                    }
+
+                    @if (nearestLocation.DistanceKm > 0)
+                    {
+                        <dt class="col-sm-5">Distance</dt>
+                        <dd class="col-sm-7"><span class="badge bg-info text-dark">~@nearestLocation.DistanceKm km</span></dd>
+                    }
+                </dl>
+                <a href="https://www.google.com/maps/search/?api=1&query=@nearestLocation.Latitude,@nearestLocation.Longitude"
+                   target="_blank" rel="noopener" class="btn btn-sm btn-outline-primary w-100">
+                    <i class="bi bi-map me-1"></i>View on Google Maps
+                </a>
+            </div>
+        }
+    </div>
+</div>
+
+@functions {
+    string FormatFileSize(long bytes)
+    {
+        if (bytes < 1024) return $"{bytes} B";
+        if (bytes < 1024 * 1024) return $"{bytes / 1024.0:F1} KB";
+        return $"{bytes / (1024.0 * 1024.0):F1} MB";
+    }
+}
+
+@section Scripts {
+    <script>
+        (function () {
+            // DOM elements (may be absent depending on role/status)
+            var dropZone = document.getElementById('uploadDropZone');
+            var fileInput = document.getElementById('uploadFileInput');
+            var form = document.getElementById('uploadForm');
+            var progressBar = document.getElementById('progressBar');
+            var uploadProgress = document.getElementById('uploadProgress');
+
+            // Helper: upload files to given form element
+            function uploadFilesToForm(targetForm, files) {
+                if (!targetForm || !files || files.length === 0) return;
+                var formData = new FormData(targetForm);
+                for (var i = 0; i < files.length; i++) {
+                    formData.append('files', files[i]);
+                }
+
+                var xhr = new XMLHttpRequest();
+                xhr.open('POST', targetForm.action, true);
+
+                if (xhr.upload && progressBar) {
+                    xhr.upload.addEventListener('progress', function (e) {
+                        if (e.lengthComputable) {
+                            var percentComplete = (e.loaded / e.total) * 100;
+                            progressBar.style.width = percentComplete + '%';
+                        }
+                    });
+                }
+
+                xhr.onload = function () {
+                    if (xhr.status === 200 || xhr.status === 204) {
+                        location.reload();
+                    } else {
+                        alert('An error occurred while uploading files. Please try again.');
+                    }
+                };
+
+                xhr.send(formData);
+                if (uploadProgress) uploadProgress.style.display = 'block';
+            }
+
+            // Drag/drop upload handlers
+            if (dropZone) {
+                if (fileInput) {
+                    dropZone.addEventListener('click', function () {
+                        fileInput.click();
+                    });
+
+                    fileInput.addEventListener('change', function (e) {
+                        e.preventDefault();
+                        uploadFilesToForm(form, e.target.files);
+                    });
+                }
+
+                dropZone.addEventListener('dragover', function (e) {
+                    e.preventDefault();
+                    dropZone.classList.add('bg-light');
+                });
+
+                dropZone.addEventListener('dragleave', function () {
+                    dropZone.classList.remove('bg-light');
+                });
+
+                dropZone.addEventListener('drop', function (e) {
+                    e.preventDefault();
+                    dropZone.classList.remove('bg-light');
+                    var files = e.dataTransfer && e.dataTransfer.files ? e.dataTransfer.files : null;
+                    if (files && files.length > 0) {
+                        uploadFilesToForm(form, files);
+                    }
+                });
+            }
+
+            // Replace inputs (per-document). Allow selecting multiple files: first replaces, extras are added.
+            var pendingReplace = { formId: null, files: null, inputId: null };
+            var replaceInputs = document.querySelectorAll('[id^="replaceInput-"]');
+            replaceInputs.forEach(function (input) {
+                input.addEventListener('change', function (e) {
+                    var files = e.target.files;
+                    if (!files || files.length === 0) return;
+
+                    var id = this.id.split('-')[1];
+                    pendingReplace.formId = 'replaceForm-' + id;
+                    pendingReplace.inputId = this.id;
+                    pendingReplace.files = files;
+
+                    var modal = document.getElementById('replaceConfirmModal');
+                    if (modal) {
+                        var nameEl = document.getElementById('replaceFileName');
+                        if (nameEl) nameEl.textContent = Array.from(files).map(function (f) { return f.name; }).join(', ');
+                        modal.style.display = 'flex';
+                    } else {
+                        // fallback immediate
+                        performReplaceUpload(pendingReplace.formId, pendingReplace.files);
+                    }
+                });
+            });
+
+            function performReplaceUpload(formId, files) {
+                var formEl = document.getElementById(formId);
+                if (!formEl || !files || files.length === 0) return;
+
+                // First file replaces the existing document (server-side will handle update)
+                var formData = new FormData(formEl);
+                for (var i = 0; i < files.length; i++) formData.append('files', files[i]);
+
+                var xhr = new XMLHttpRequest();
+                xhr.open('POST', formEl.action, true);
+                xhr.onload = function () {
+                    if (xhr.status === 200 || xhr.status === 204) {
+                        location.reload();
+                    } else {
+                        alert('An error occurred while replacing the document.');
+                    }
+                };
+                xhr.send(formData);
+            }
+
+            // expose for modal handlers
+            window.pendingReplace = pendingReplace;
+            window.performReplaceUpload = performReplaceUpload;
+
+            // Modal handlers (if modal exists)
+            (function () {
+                var modal = document.getElementById('replaceConfirmModal');
+                if (!modal) return;
+                var confirmBtn = document.getElementById('replaceConfirmBtn');
+                var cancelBtn = document.getElementById('replaceCancelBtn');
+
+                if (confirmBtn) confirmBtn.addEventListener('click', function () {
+                    if (window.pendingReplace && window.pendingReplace.formId && window.pendingReplace.files) {
+                        window.performReplaceUpload(window.pendingReplace.formId, window.pendingReplace.files);
+                        // clear input
+                        try { var inp = document.getElementById(window.pendingReplace.inputId); if (inp) inp.value = ''; } catch (e) { }
+                        window.pendingReplace.files = null;
+                    }
+                    modal.style.display = 'none';
+                });
+
+                if (cancelBtn) cancelBtn.addEventListener('click', function () {
+                    if (window.pendingReplace && window.pendingReplace.inputId) {
+                        try { var inp = document.getElementById(window.pendingReplace.inputId); if (inp) inp.value = ''; } catch (e) { }
+                        window.pendingReplace.files = null;
+                    }
+                    modal.style.display = 'none';
+                });
+            })();
+
+        })();
+    </script>
+}

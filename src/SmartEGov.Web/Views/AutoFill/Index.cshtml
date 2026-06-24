@@ -1,0 +1,112 @@
+﻿@model IEnumerable<SmartEGov.Application.DTOs.DocumentProfileDto>
+@{
+    ViewData["Title"] = "My Document Profiles";
+}
+
+<div class="container-fluid py-4">
+    <div class="d-flex justify-content-between align-items-center mb-4">
+        <h2><i class="bi bi-person-vcard me-2"></i>My Document Profiles</h2>
+        <a asp-action="SaveProfile" class="btn btn-primary">
+            <i class="bi bi-plus-circle me-1"></i>Add Profile
+        </a>
+    </div>
+
+    @if (TempData["Success"] != null)
+    {
+        <div class="alert alert-success alert-dismissible fade show">
+            @TempData["Success"]
+            <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+        </div>
+    }
+
+    <div class="alert alert-info">
+        <i class="bi bi-shield-lock me-2"></i>
+        ID numbers are encrypted and shown masked (e.g. <strong>****1234</strong>).
+        Profiles auto-fill service request forms so you don't retype your details every time.
+    </div>
+
+    @if (!Model.Any())
+    {
+        <div class="card text-center py-5">
+            <div class="card-body">
+                <i class="bi bi-person-vcard fs-1 text-muted"></i>
+                <p class="mt-3 text-muted">No saved profiles yet.</p>
+                <a asp-action="SaveProfile" class="btn btn-primary mt-2">Add Your First Profile</a>
+            </div>
+        </div>
+    }
+    else
+    {
+        <div class="row g-3">
+            @foreach (var p in Model)
+            {
+                <div class="col-md-6 col-xl-4">
+                    <div class="card shadow-sm h-100">
+                        <div class="card-header d-flex justify-content-between align-items-center">
+                            <span class="fw-semibold">
+                                <i class="bi bi-card-text me-1"></i>@p.DocumentType
+                            </span>
+                            <span class="badge @(p.ExtractionMethod == "MRZ" ? "bg-info" : p.ExtractionMethod == "OCR" ? "bg-warning text-dark" : "bg-secondary")">
+                                @p.ExtractionMethod
+                            </span>
+                        </div>
+                        <div class="card-body">
+                            <dl class="row mb-0 small">
+                                <dt class="col-5">Last Name</dt>
+                                <dd class="col-7">@p.LastName</dd>
+
+                                <dt class="col-5">First Name</dt>
+                                <dd class="col-7">@p.FirstName</dd>
+
+                                <dt class="col-5">Father's Name</dt>
+                                <dd class="col-7">@p.FatherName</dd>
+
+                                @if (!string.IsNullOrEmpty(p.MotherName))
+                                {
+                                    <dt class="col-5">Mother's Name</dt>
+                                    <dd class="col-7">@p.MotherName @p.MotherLastName</dd>
+                                }
+
+                                <dt class="col-5">ID Number</dt>
+                                <dd class="col-7"><code>@p.DocumentNumberMasked</code></dd>
+
+                                @if (!string.IsNullOrEmpty(p.RegistryNumber))
+                                {
+                                    <dt class="col-5">Registry No.</dt>
+                                    <dd class="col-7">@p.RegistryNumber</dd>
+                                }
+
+                                <dt class="col-5">Date of Birth</dt>
+                                <dd class="col-7">@p.DateOfBirth.ToString("dd MMM yyyy")</dd>
+
+                                @if (!string.IsNullOrEmpty(p.Village) || !string.IsNullOrEmpty(p.District))
+                                {
+                        <dt class="col-5">Location</dt>
+                        <dd class="col-7">
+                            @string.Join(", ", new[] { p.Village, p.District, p.Province }
+                                                        .Where(s => !string.IsNullOrEmpty(s)))
+                        </dd>
+                                                }
+
+                                <dt class="col-5">Saved</dt>
+                                <dd class="col-7">@p.CreatedAt.ToString("dd MMM yyyy")</dd>
+                            </dl>
+                        </div>
+                        <div class="card-footer d-flex gap-2">
+                            <a asp-action="SaveProfile" class="btn btn-sm btn-outline-primary flex-grow-1">
+                                <i class="bi bi-pencil"></i> Edit
+                            </a>
+                            <form asp-action="Delete" asp-route-id="@p.Id" method="post"
+                                  onsubmit="return confirm('Delete this profile?')">
+                                @Html.AntiForgeryToken()
+                                <button type="submit" class="btn btn-sm btn-outline-danger">
+                                    <i class="bi bi-trash"></i>
+                                </button>
+                            </form>
+                        </div>
+                    </div>
+                </div>
+            }
+        </div>
+    }
+</div>

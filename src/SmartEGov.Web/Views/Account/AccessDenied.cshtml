@@ -1,0 +1,14 @@
+@{
+    ViewData["Title"] = "Access Denied";
+}
+
+<div class="lb-error-page">
+    <div class="error-icon" style="color:var(--lb-red);">
+        <i class="bi bi-shield-x"></i>
+    </div>
+    <h2 style="color:var(--lb-red);">Access Denied</h2>
+    <p>You do not have the required permissions to access this resource. Please contact an administrator if you believe this is an error.</p>
+    <a asp-controller="Home" asp-action="Index" class="btn btn-lb-primary">
+        <i class="bi bi-house-door me-1"></i>Go Home
+    </a>
+</div>

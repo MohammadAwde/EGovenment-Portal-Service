@@ -1,0 +1,239 @@
+@model OfficerDashboardDto
+@{
+    ViewData["Title"] = "Officer Dashboard";
+}
+
+<div class="lb-page-header">
+    <h2><i class="bi bi-speedometer2 me-2"></i>Officer Dashboard</h2>
+    <p>Your review workload and activity summary.</p>
+</div>
+
+@section Scripts {
+    <script>
+        (function(){
+            var input = document.getElementById('serviceSearch');
+            if(!input) return;
+            var list = document.getElementById('assignedServicesList');
+            var items = list ? Array.from(list.querySelectorAll('.assigned-service-item')) : [];
+
+            input.addEventListener('input', function(e){
+                var q = (e.target.value || '').trim().toLowerCase();
+                if(!items.length) return;
+                items.forEach(function(li){
+                    var name = li.getAttribute('data-name') || '';
+                    li.style.display = q === '' || name.indexOf(q) !== -1 ? '' : 'none';
+                });
+            });
+        })();
+    </script>
+}
+
+<div class="row g-3 mb-4">
+    <div class="col-6 col-md-4">
+        <div class="lb-stat-card gold">
+            <div class="card-body text-center py-3">
+                <div class="stat-number" data-counter="@(Model.PendingRequests + Model.UnderReviewRequests)">0</div>
+                <div class="stat-label">Awaiting Review</div>
+                <div class="mt-1 small" style="opacity:.7;">
+                    Submitted: @Model.PendingRequests &middot; Under Review: @Model.UnderReviewRequests
+                </div>
+            </div>
+            <div class="card-footer bg-transparent border-0 py-1 text-center">
+                <a asp-controller="ServiceRequest" asp-action="Pending" class="text-white text-decoration-none small">
+                    View Pending <i class="bi bi-arrow-right"></i>
+                </a>
+            </div>
+        </div>
+    </div>
+    <div class="col-6 col-md-4">
+        <div class="lb-stat-card green">
+            <div class="card-body text-center py-3">
+                <div class="stat-number" data-counter="@Model.ApprovedByMe">0</div>
+                <div class="stat-label">Approved by Me</div>
+            </div>
+        </div>
+    </div>
+    <div class="col-6 col-md-4">
+        <div class="lb-stat-card red">
+            <div class="card-body text-center py-3">
+                <div class="stat-number" data-counter="@Model.RejectedByMe">0</div>
+                <div class="stat-label">Rejected by Me</div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<div class="row mb-4">
+    <div class="col-12">
+        <div class="lb-form-card">
+            <h6 class="text-uppercase fw-bold mb-3" style="color:var(--lb-green-dark);letter-spacing:.04em;">
+                <i class="bi bi-bar-chart me-1"></i>My Review Summary
+            </h6>
+            <div class="row text-center">
+                <div class="col-md-4">
+                    <h4>@Model.TotalReviewedByMe</h4>
+                    <small class="text-muted">Total Steps Reviewed</small>
+                </div>
+                <div class="col-md-4">
+                    <h4 style="color:var(--lb-green);">@Model.ApprovedByMe</h4>
+                    <small class="text-muted">Approved</small>
+                </div>
+                <div class="col-md-4">
+                    <h4 style="color:var(--lb-red);">@Model.RejectedByMe</h4>
+                    <small class="text-muted">Rejected</small>
+                </div>
+            </div>
+            @if (Model.TotalReviewedByMe > 0)
+            {
+                <div class="progress mt-3" style="height: 20px;">
+                    @{
+                        double reviewTotal = Model.TotalReviewedByMe;
+                    }
+                    <div class="progress-bar" style="width: @((Model.ApprovedByMe / reviewTotal * 100).ToString("F1"))%;background:var(--lb-green);">
+                        Approved
+                    </div>
+                    <div class="progress-bar" style="width: @((Model.RejectedByMe / reviewTotal * 100).ToString("F1"))%;background:var(--lb-red);">
+                        Rejected
+                    </div>
+                </div>
+            }
+        </div>
+    </div>
+</div>
+
+<div class="row">
+    <div class="col-md-7">
+        <div class="card mb-3">
+            <div class="card-header d-flex justify-content-between align-items-center">
+                <strong><i class="bi bi-hourglass-split me-1"></i>Pending Requests</strong>
+            </div>
+            <div class="card-body p-0">
+                <div class="table-responsive">
+                    <table class="table table-hover table-sm mb-0">
+                        <thead>
+                            <tr>
+                                <th>Reference</th>
+                                <th>Service</th>
+                                <th>Citizen</th>
+                                <th>Status</th>
+                                <th>Submitted</th>
+                                <th></th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            @foreach (var req in Model.PendingRequestsList)
+                            {
+                                var badge = req.Status switch
+                                {
+                                    ServiceRequestStatus.Submitted => "lb-submitted",
+                                    ServiceRequestStatus.UnderReview => "lb-review",
+                                    ServiceRequestStatus.PendingInformation => "lb-pending-info",
+                                    ServiceRequestStatus.PendingPayment => "lb-pending-payment",
+                                    ServiceRequestStatus.Approved => "lb-approved",
+                                    ServiceRequestStatus.Rejected => "lb-rejected",
+                                    ServiceRequestStatus.Completed => "lb-completed",
+                                    ServiceRequestStatus.Cancelled => "lb-cancelled",
+                                    _ => "bg-secondary"
+                                };
+                                <tr>
+                                    <td><code>@req.ReferenceNumber</code></td>
+                                    <td>@req.GovernmentServiceName</td>
+                                    <td>@req.CitizenName</td>
+                                    <td><span class="badge @badge">@req.Status</span></td>
+                                    <td>@(req.SubmittedAt?.ToString("MMM dd") ?? "-")</td>
+                                    <td>
+                                        <a asp-controller="ServiceRequest" asp-action="Details" asp-route-id="@req.Id"
+                                           class="btn btn-sm btn-lb-primary">
+                                            <i class="bi bi-clipboard-check me-1"></i>Review
+                                        </a>
+                                    </td>
+                                </tr>
+                            }
+                            @if (!Model.PendingRequestsList.Any())
+                            {
+                                <tr>
+                                    <td colspan="6" class="text-center py-3">
+                                        <div class="lb-empty-state py-1">
+                                            <i class="bi bi-check-circle" style="font-size:1.5rem;"></i>
+                                            <p class="small mb-0">No pending requests. You're all caught up!</p>
+                                        </div>
+                                    </td>
+                                </tr>
+                            }
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+    </div>
+    <div class="col-md-5">
+        <div class="card mb-3">
+            <div class="card-header d-flex justify-content-between align-items-center">
+                <strong><i class="bi bi-person-badge me-1"></i>Assigned Services</strong>
+                <div style="min-width:240px;">
+                    <input id="serviceSearch" type="search" class="form-control form-control-sm" placeholder="Search services..." aria-label="Search services" />
+                </div>
+            </div>
+            <div class="card-body p-3">
+                @if (Model.AssignedServiceSummaries != null && Model.AssignedServiceSummaries.Any())
+                {
+                    <ul id="assignedServicesList" class="list-unstyled mb-0 small">
+                        @foreach (var svc in Model.AssignedServiceSummaries)
+                        {
+                            <li class="mb-2 d-flex justify-content-between align-items-center assigned-service-item" data-name="@svc.Name.ToLowerInvariant()">
+                                <div>
+                                    <strong>@svc.Name</strong>
+                                    <div class="text-muted small">Fee: @svc.Fee.ToString("N0")</div>
+                                </div>
+                                <div class="text-end">
+                                    <a asp-controller="ServiceRequest" asp-action="Pending" asp-route-serviceId="@svc.Id" class="btn btn-sm btn-outline-primary me-2">View</a>
+                                    <span class="badge @(svc.PendingCount > 0 ? "lb-review" : "bg-secondary")">@svc.PendingCount</span>
+                                </div>
+                            </li>
+                        }
+                    </ul>
+                }
+                else
+                {
+                    <div class="text-muted small">No services assigned to you.</div>
+                }
+            </div>
+        </div>
+        <div class="card mb-3">
+            <div class="card-header"><strong><i class="bi bi-clock-history me-1"></i>My Recent Actions</strong></div>
+            <div class="card-body p-0">
+                <ul class="list-group list-group-flush">
+                    @foreach (var action in Model.RecentActions)
+                    {
+                        var actionBadge = action.Status == ApprovalStatus.Approved ? "lb-approved" : "lb-rejected";
+                        var actionLabel = action.Status == ApprovalStatus.Approved ? "Approved" : "Rejected";
+                        <li class="list-group-item small">
+                            <div class="d-flex justify-content-between">
+                                <span>
+                                    <span class="badge @actionBadge">@actionLabel</span>
+                                    @action.StepName
+                                </span>
+                                <a asp-controller="ServiceRequest" asp-action="Details" asp-route-id="@action.ServiceRequestId"
+                                   class="text-decoration-none small" style="color:var(--lb-green);">View</a>
+                            </div>
+                            @if (!string.IsNullOrEmpty(action.Comments))
+                            {
+                                <div class="text-muted fst-italic mt-1">@action.Comments</div>
+                            }
+                            <div class="text-muted mt-1"><i class="bi bi-clock me-1"></i>@(action.ActionDate?.ToString("MMM dd, HH:mm") ?? "")</div>
+                        </li>
+                    }
+                    @if (!Model.RecentActions.Any())
+                    {
+                        <li class="list-group-item text-center py-3">
+                            <div class="lb-empty-state py-1">
+                                <i class="bi bi-journal-text" style="font-size:1.5rem;"></i>
+                                <p class="small mb-0">No review actions yet.</p>
+                            </div>
+                        </li>
+                    }
+                </ul>
+            </div>
+        </div>
+    </div>
+</div>

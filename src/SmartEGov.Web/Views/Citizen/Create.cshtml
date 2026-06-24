@@ -1,0 +1,243 @@
+﻿@model CitizenDto
+@{
+    ViewData["Title"] = "Complete Your Profile";
+}
+
+<div class="lb-page-header">
+    <h2><i class="bi bi-person-plus me-2"></i>Complete Your Profile</h2>
+    <p>Please fill in your citizen details to start using government services.</p>
+</div>
+
+<div class="row justify-content-center">
+    <div class="col-lg-8">
+
+        <!-- ID Scan Card -->
+        <div class="card border-success mb-4">
+            <div class="card-header bg-success text-white py-2">
+                <div class="d-flex justify-content-between align-items-center mb-2">
+                    <span class="fw-semibold"><i class="bi bi-person-vcard me-2"></i>Scan Your Lebanese ID Card</span>
+                    <span class="badge bg-white text-primary">Optional — saves you time</span>
+                </div>
+                <div class="btn-group btn-group-sm w-100">
+                    <button type="button" class="btn btn-light active" id="btnScan" onclick="setMode('Scan')"><i class="bi bi-camera me-1"></i>Scan ID</button>
+                    <button type="button" class="btn btn-outline-light" id="btnManual" onclick="setMode('Manual')"><i class="bi bi-pencil me-1"></i>Skip Scan</button>
+                </div>
+            </div>
+            <div class="card-body" id="scanArea">
+                <p class="text-muted small mb-3">Upload front and back photos of your Lebanese ID. We'll auto-fill the fields below.</p>
+                <div class="row g-2 mb-3">
+                    <div class="col-6">
+                        <div id="frontBox" class="rounded p-3 text-center" style="border:2px dashed #198754;cursor:pointer;min-height:85px;">
+                            <i class="bi bi-person-vcard fs-3 text-primary"></i>
+                            <p class="small mb-0 mt-1">Front of ID</p>
+                            <small class="text-muted">الوجه الأمامي</small>
+                            <input type="file" id="frontFile" accept="image/jpeg,image/png" class="d-none" />
+                        </div>
+                        <div id="frontPreview" class="d-none mt-1 text-center">
+                            <img id="frontImg" src="" class="img-fluid rounded" style="max-height:65px;" />
+                            <span class="badge bg-success"><i class="bi bi-check"></i> Front</span>
+                        </div>
+                    </div>
+                    <div class="col-6">
+                        <div id="backBox" class="rounded p-3 text-center" style="border:2px dashed #6c757d;cursor:pointer;min-height:85px;">
+                            <i class="bi bi-upc-scan fs-3 text-secondary"></i>
+                            <p class="small mb-0 mt-1">Back of ID</p>
+                            <small class="text-muted">الوجه الخلفي (MRZ)</small>
+                            <input type="file" id="backFile" accept="image/jpeg,image/png" class="d-none" />
+                        </div>
+                        <div id="backPreview" class="d-none mt-1 text-center">
+                            <img id="backImg" src="" class="img-fluid rounded" style="max-height:65px;" />
+                            <span class="badge bg-success"><i class="bi bi-check"></i> Back</span>
+                        </div>
+                    </div>
+                </div>
+                <button type="button" class="btn btn-outline-success btn-sm w-100 mb-2" id="btnExtract" disabled>
+                    <i class="bi bi-magic me-1"></i>Auto-Fill from ID Photos
+                </button>
+                <div id="ocrSpinner" class="d-none text-center mb-2">
+                    <div class="spinner-border spinner-border-sm text-primary me-1"></div>
+                    <small class="text-primary">Reading your ID…</small>
+                </div>
+                <div id="ocrMsg" class="d-none alert py-2 small"></div>
+            </div>
+        </div>
+
+        <!-- Profile Form -->
+        <div class="lb-form-card">
+            <form asp-action="Create" method="post">
+                <div asp-validation-summary="ModelOnly" class="alert alert-danger"></div>
+                <div class="row">
+                    <div class="col-md-6 mb-3">
+                        <label asp-for="NationalId" class="form-label"></label>
+                        <div class="input-group">
+                            <span class="input-group-text"><i class="bi bi-card-text"></i></span>
+                            <input asp-for="NationalId" class="form-control" id="fNationalId" />
+                        </div>
+                        <span asp-validation-for="NationalId" class="text-danger small"></span>
+                    </div>
+                    <div class="col-md-6 mb-3">
+                        <label asp-for="PhoneNumber" class="form-label"></label>
+                        <div class="input-group">
+                            <span class="input-group-text"><i class="bi bi-telephone"></i></span>
+                            <input asp-for="PhoneNumber" class="form-control" />
+                        </div>
+                        <span asp-validation-for="PhoneNumber" class="text-danger small"></span>
+                    </div>
+                </div>
+                <div class="row">
+                    <div class="col-md-6 mb-3">
+                        <label asp-for="FirstName" class="form-label"></label>
+                        <input asp-for="FirstName" class="form-control" id="fFirstName" />
+                        <span asp-validation-for="FirstName" class="text-danger small"></span>
+                    </div>
+                    <div class="col-md-6 mb-3">
+                        <label asp-for="LastName" class="form-label"></label>
+                        <input asp-for="LastName" class="form-control" id="fLastName" />
+                        <span asp-validation-for="LastName" class="text-danger small"></span>
+                    </div>
+                </div>
+                <div class="row">
+                    <div class="col-md-6 mb-3">
+                        <label asp-for="DateOfBirth" class="form-label"></label>
+                        <div class="input-group">
+                            <span class="input-group-text"><i class="bi bi-calendar-event"></i></span>
+                            <input asp-for="DateOfBirth" class="form-control" type="date" id="fDob" />
+                        </div>
+                        <span asp-validation-for="DateOfBirth" class="text-danger small"></span>
+                    </div>
+                </div>
+                <div class="mb-4">
+                    <label asp-for="Address" class="form-label"></label>
+                    <div class="input-group">
+                        <span class="input-group-text"><i class="bi bi-geo-alt"></i></span>
+                        <textarea asp-for="Address" class="form-control" rows="2" id="fAddress"></textarea>
+                    </div>
+                    <span asp-validation-for="Address" class="text-danger small"></span>
+                </div>
+                <button type="submit" class="btn btn-lb-primary">
+                    <i class="bi bi-check-lg me-1"></i>Save Profile
+                </button>
+            </form>
+        </div>
+
+    </div>
+    <div class="col-lg-4">
+        <div class="lb-info-card">
+            <h6><i class="bi bi-lightbulb me-1"></i>Getting Started</h6>
+            <ul class="list-unstyled mb-0 small">
+                <li class="mb-2"><i class="bi bi-1-circle text-success me-1"></i> Scan your ID or fill in manually.</li>
+                <li class="mb-2"><i class="bi bi-2-circle text-success me-1"></i> Submit your profile to activate your account.</li>
+                <li><i class="bi bi-3-circle text-success me-1"></i> Start requesting government services online!</li>
+            </ul>
+        </div>
+    </div>
+</div>
+
+@section Scripts {
+    <partial name="_ValidationScriptsPartial" />
+    <script>
+        function setMode(mode) {
+            const scanArea = document.getElementById('scanArea');
+            ['Scan','Manual'].forEach(m => {
+                const btn = document.getElementById('btn' + m);
+                if (btn) { btn.classList.remove('active','btn-light'); btn.classList.add('btn-outline-light'); }
+            });
+            const activeBtn = document.getElementById('btn' + mode);
+            if (activeBtn) { activeBtn.classList.add('active','btn-light'); activeBtn.classList.remove('btn-outline-light'); }
+            scanArea.style.display = mode === 'Scan' ? '' : 'none';
+        }
+
+        let frontFile = null, backFile = null;
+
+        function setupBox(boxId, inputId, previewId, imgId, onFile) {
+            const box = document.getElementById(boxId);
+            const input = document.getElementById(inputId);
+            box.addEventListener('click', () => input.click());
+            box.addEventListener('dragover', e => { e.preventDefault(); box.style.background='#e8f0fe'; });
+            box.addEventListener('dragleave', () => box.style.background='');
+            box.addEventListener('drop', e => { e.preventDefault(); box.style.background=''; if(e.dataTransfer.files[0]) handle(e.dataTransfer.files[0]); });
+            input.addEventListener('change', () => { if(input.files[0]) handle(input.files[0]); });
+
+            function handle(file) {
+                onFile(file);
+                const r = new FileReader();
+                r.onload = e => {
+                    document.getElementById(imgId).src = e.target.result;
+                    document.getElementById(previewId).classList.remove('d-none');
+                    box.style.borderColor = '#198754';
+                };
+                r.readAsDataURL(file);
+                document.getElementById('btnExtract').disabled = !frontFile && !backFile;
+            }
+        }
+
+        setupBox('frontBox','frontFile','frontPreview','frontImg', f => frontFile=f);
+        setupBox('backBox', 'backFile', 'backPreview', 'backImg',  f => backFile=f);
+
+        document.getElementById('btnExtract').addEventListener('click', async () => {
+            document.getElementById('ocrSpinner').classList.remove('d-none');
+            document.getElementById('ocrMsg').classList.add('d-none');
+
+            const token = document.querySelector('input[name="__RequestVerificationToken"]')?.value ?? '';
+            let result = {};
+
+            // Send front first — gets National ID number
+            if (frontFile) {
+                const fd = new FormData();
+                fd.append('DocumentType', 'NationalID');
+                fd.append('__RequestVerificationToken', token);
+                fd.append('IdImage', frontFile, 'front.jpg');
+                const res = await fetch('/AutoFill/UploadId', { method: 'POST', body: fd });
+                if (res.ok) result = await res.json();
+            }
+
+            // Send back second — gets date + address
+            if (backFile) {
+                const fd = new FormData();
+                fd.append('DocumentType', 'NationalID');
+                fd.append('__RequestVerificationToken', token);
+                fd.append('IdImage', backFile, 'back.jpg');
+                const res = await fetch('/AutoFill/UploadId', { method: 'POST', body: fd });
+                if (res.ok) {
+                    const backData = await res.json();
+                    if (!result.village   && backData.village)   result.village   = backData.village;
+                    if (!result.district  && backData.district)  result.district  = backData.district;
+                    if (!result.province  && backData.province)  result.province  = backData.province;
+                    if (!result.dateOfBirth && backData.dateOfBirth) result.dateOfBirth = backData.dateOfBirth;
+                }
+            }
+
+            document.getElementById('ocrSpinner').classList.add('d-none');
+
+            // Fill National ID only (NOT first/last name — those come from registration)
+            fill('fNationalId', result.documentNumberMasked || '');
+
+            // Fill date of birth
+            fill('fDob', result.dateOfBirth?.substring(0, 10));
+
+            // Build address from location fields
+            const addr = [result.village, result.district, result.province].filter(Boolean).join(', ');
+            if (addr) fill('fAddress', addr);
+
+            const hasData = result.documentNumberMasked || result.dateOfBirth || result.village;
+            showMsg(hasData ? 'success' : 'info',
+                hasData
+                    ? 'Fields auto-filled from your ID! Please review before saving.'
+                    : 'Could not auto-read fields. Please fill in manually.');
+        });
+
+        function fill(id, val) {
+            const el = document.getElementById(id);
+            if (el && val) { el.value = val; el.classList.add('border-success'); }
+        }
+
+        function showMsg(type, msg) {
+            const el = document.getElementById('ocrMsg');
+            el.className = `alert alert-${type} py-2 small`;
+            el.innerHTML = `<i class="bi bi-${type==='success'?'check-circle':type==='warning'?'exclamation-triangle':'info-circle'} me-1"></i>${msg}`;
+            el.classList.remove('d-none');
+        }
+    </script>
+}
+
+}

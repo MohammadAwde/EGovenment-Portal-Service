@@ -1,0 +1,211 @@
+@model PaymentDto
+@{
+    ViewData["Title"] = "Complete Payment";
+    var isPayPal = Model.Method == PaymentMethod.PayPal;
+    var isCard = Model.Method == PaymentMethod.CreditCard || Model.Method == PaymentMethod.DebitCard;
+    var publishableKey = (string?)ViewBag.StripePublishableKey;
+    var hasPublishable = !string.IsNullOrWhiteSpace(publishableKey);
+}
+
+<div class="lb-page-header">
+    <h2><i class="bi bi-lock me-2"></i>Complete Payment</h2>
+    <p>Enter your payment details below to finalize the transaction.</p>
+</div>
+
+@* If using Stripe Checkout (publishable key present) for card payments, we don't collect card details here.
+   Instead show a single Checkout button that redirects to Stripe Checkout. *@
+@if (isCard && hasPublishable)
+{
+    // No client-side Elements needed for Checkout redirect
+}
+else if (isCard && hasPublishable == false)
+{
+    <script src="https://js.stripe.com/v3/"></script>
+    <script>
+        (function() {
+            var publishableKey = "" + (ViewBag.StripePublishableKey ?? '');
+            if (!publishableKey) return; // no key, skip Elements
+
+            var stripe = Stripe(publishableKey);
+            var elements = stripe.elements();
+            var style = {
+                base: {
+                    color: '#32325d',
+                    fontFamily: 'Arial, sans-serif',
+                    fontSmoothing: 'antialiased',
+                    fontSize: '16px',
+                    '::placeholder': { color: '#a0aec0' }
+                },
+                invalid: { color: '#fa755a', iconColor: '#fa755a' }
+            };
+
+            var card = elements.create('card', { style: style });
+            card.mount('#card-element');
+
+            var form = document.getElementById('payment-form');
+            var cardHolderName = document.getElementById('cardholder-name');
+            var cardErrors = document.getElementById('card-errors');
+
+            form.addEventListener('submit', function(ev) {
+                // If PaymentMethodId already set (fallback), allow submit
+                var existing = document.getElementById('PaymentMethodId').value;
+                if (existing) return;
+
+                ev.preventDefault();
+                stripe.createPaymentMethod({
+                    type: 'card',
+                    card: card,
+                    billing_details: { name: cardHolderName ? cardHolderName.value : '' }
+                }).then(function(result) {
+                    if (result.error) {
+                        cardErrors.textContent = result.error.message;
+                    } else {
+                        // Set the PaymentMethodId and submit
+                        document.getElementById('PaymentMethodId').value = result.paymentMethod.id;
+                        form.submit();
+                    }
+                });
+            });
+        })();
+    </script>
+}
+
+<div class="row justify-content-center">
+    <div class="col-md-6">
+        <div class="lb-form-card mb-3">
+            <h6 class="text-uppercase fw-bold mb-3" style="color:var(--lb-green-dark);letter-spacing:.04em;">
+                <i class="bi bi-receipt me-1"></i>Transaction Summary
+            </h6>
+            <dl class="lb-detail-grid row mb-0">
+                <dt class="col-sm-5">Transaction</dt>
+                <dd class="col-sm-7"><code>@Model.TransactionNumber</code></dd>
+
+                <dt class="col-sm-5">Service</dt>
+                <dd class="col-sm-7">@(Model.GovernmentServiceName ?? "—")</dd>
+
+                <dt class="col-sm-5">Amount</dt>
+                <dd class="col-sm-7"><strong style="color:var(--lb-green);font-size:1.1rem;">@Model.Amount.ToString("N0") LBP</strong></dd>
+
+                <dt class="col-sm-5">Method</dt>
+                <dd class="col-sm-7">
+                    @if (isPayPal)
+                    {
+                        <span class="badge lb-submitted">PayPal</span>
+                    }
+                    else
+                    {
+                        <span class="badge" style="background:#2d3436;">@Model.Method</span>
+                    }
+                </dd>
+            </dl>
+        </div>
+
+        <div class="lb-form-card">
+            <h6 class="text-uppercase fw-bold mb-3" style="color:var(--lb-green-dark);letter-spacing:.04em;">
+                <i class="bi bi-credit-card me-1"></i>@(isPayPal ? "PayPal Details" : "Card Details")
+            </h6>
+            @* Render Checkout-only UI when card payment and publishable key present *@
+            @if (isCard && hasPublishable)
+            {
+                <form asp-action="StartCheckout" method="post" class="d-grid">
+                    @Html.AntiForgeryToken()
+                    <input type="hidden" name="paymentId" value="@Model.Id" />
+                    <button type="submit" class="btn btn-lb-primary w-100 mb-2">
+                        <i class="bi bi-cart-check me-1"></i>Pay with Stripe Checkout (@Model.Amount.ToString("N0") LBP)
+                    </button>
+                </form>
+
+                <div class="lb-info-card mb-3">
+                    <h6><i class="bi bi-info-circle me-1"></i>Secure Checkout</h6>
+                    <p class="mb-0 small">You will be redirected to Stripe's secure checkout page to complete payment. No card details are collected on this site.</p>
+                </div>
+            }
+            else
+            {
+                <form asp-action="Process" method="post" id="payment-form">
+                    @Html.AntiForgeryToken()
+                    <input type="hidden" name="paymentId" value="@Model.Id" />
+                    <input type="hidden" name="PaymentMethodId" id="PaymentMethodId" />
+
+                    @if (isPayPal)
+                    {
+                        <div class="mb-3">
+                            <label class="form-label">PayPal Email</label>
+                            <div class="input-group">
+                                <span class="input-group-text"><i class="bi bi-envelope"></i></span>
+                                <input type="email" name="payPalEmail" class="form-control" required
+                                       placeholder="your-email@example.com" />
+                            </div>
+                        </div>
+                    }
+                    else
+                    {
+                        @* Fallback when publishable key not available: allow raw card entry (development/testing only) *@
+                        <div class="mb-3">
+                            <label class="form-label">Cardholder Name</label>
+                            <div class="input-group">
+                                <span class="input-group-text"><i class="bi bi-person"></i></span>
+                                <input type="text" name="CardHolder" id="cardholder-name" class="form-control" required
+                                       placeholder="AHMAD HASAN" />
+                            </div>
+                        </div>
+
+                        <div class="mb-3">
+                            <label class="form-label">Card Number</label>
+                            <div class="input-group">
+                                <span class="input-group-text"><i class="bi bi-credit-card"></i></span>
+                                <input type="text" name="CardNumber" class="form-control" required
+                                       placeholder="4111 1111 1111 1111" maxlength="19"
+                                       pattern="[\d\s]{13,19}" title="Enter a valid card number" />
+                            </div>
+                        </div>
+                        <div class="row">
+                            <div class="col-md-6 mb-3">
+                                <label class="form-label">Expiry Date</label>
+                                <div class="input-group">
+                                    <span class="input-group-text"><i class="bi bi-calendar3"></i></span>
+                                    <input type="text" name="ExpiryDate" class="form-control" required
+                                           placeholder="MM/YY" maxlength="5"
+                                           pattern="\d{2}/\d{2}" title="Format: MM/YY" />
+                                </div>
+                            </div>
+                            <div class="col-md-6 mb-3">
+                                <label class="form-label">CVV</label>
+                                <div class="input-group">
+                                    <span class="input-group-text"><i class="bi bi-lock"></i></span>
+                                    <input type="password" name="Cvv" class="form-control" required
+                                           placeholder="123" maxlength="4"
+                                           pattern="\d{3,4}" title="3 or 4 digit security code" />
+                                </div>
+                            </div>
+                        </div>
+                    }
+
+                    <div class="lb-info-card mb-3">
+                        <h6><i class="bi bi-info-circle me-1"></i>Test Mode</h6>
+                        <p class="mb-0 small">
+                            All payments are simulated.
+                            @if (isPayPal)
+                            {
+                                <span>Use any email. Emails containing "fail" will be declined.</span>
+                            }
+                            else
+                            {
+                                <span>Use any card number. Cards ending in "0000" will be declined.</span>
+                            }
+                        </p>
+                    </div>
+
+                    <button type="submit" class="btn btn-lb-primary w-100">
+                        <i class="bi bi-lock me-1"></i>Pay @Model.Amount.ToString("N0") LBP
+                    </button>
+                </form>
+            }
+        </div>
+
+        <a asp-controller="ServiceRequest" asp-action="Details" asp-route-id="@Model.ServiceRequestId"
+           class="btn btn-outline-secondary w-100 mt-2">
+            <i class="bi bi-x-lg me-1"></i>Cancel
+        </a>
+    </div>
+</div>

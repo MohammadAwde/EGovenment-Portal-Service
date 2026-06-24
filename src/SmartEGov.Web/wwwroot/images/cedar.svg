@@ -1,0 +1,12 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100" fill="currentColor">
+  <!-- Simplified Lebanese Cedar Tree -->
+  <rect x="46" y="70" width="8" height="18" rx="1" fill="currentColor" opacity="0.7"/>
+  <!-- Branches layer 1 (bottom, widest) -->
+  <polygon points="50,28 18,68 82,68" fill="currentColor" opacity="0.9"/>
+  <!-- Branches layer 2 -->
+  <polygon points="50,20 25,55 75,55" fill="currentColor" opacity="0.95"/>
+  <!-- Branches layer 3 (top) -->
+  <polygon points="50,10 32,40 68,40" fill="currentColor"/>
+  <!-- Trunk base -->
+  <rect x="38" y="88" width="24" height="4" rx="2" fill="currentColor" opacity="0.5"/>
+</svg>

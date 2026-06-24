@@ -1,0 +1,202 @@
+﻿@model SmartEGov.Application.DTOs.DocumentProfileDto
+@{
+    ViewData["Title"] = "Save Document Profile";
+}
+
+<div class="container py-4" style="max-width:780px">
+    <h2 class="mb-4"><i class="bi bi-person-vcard me-2"></i>Save Document Profile</h2>
+
+    <!-- OCR Upload -->
+    <div class="card shadow-sm mb-4 border-primary">
+        <div class="card-header bg-primary text-white fw-semibold">
+            <i class="bi bi-camera me-2"></i>Quick Fill — Scan Your Lebanese ID Card
+        </div>
+        <div class="card-body">
+            <p class="text-muted small mb-3">
+                Upload a clear photo of your ID card. The system reads the MRZ strip on the back
+                for the most accurate extraction.
+            </p>
+            <div id="dropZone" class="rounded p-4 text-center mb-3"
+                 style="border:2px dashed #0d6efd;cursor:pointer;">
+                <i class="bi bi-upload fs-2 text-primary"></i>
+                <p class="mb-1 mt-2">Drag & drop your ID card or <strong>click to browse</strong></p>
+                <small class="text-muted">JPG or PNG · Max 5 MB</small>
+                <input type="file" id="idFile" accept="image/jpeg,image/png" class="d-none" />
+            </div>
+            <div id="ocrSpinner" class="d-none text-primary small">
+                <div class="spinner-border spinner-border-sm me-2"></div>Extracting data from ID…
+            </div>
+            <div id="ocrError" class="alert alert-warning d-none"></div>
+            <div id="ocrSuccess" class="alert alert-success d-none">
+                <i class="bi bi-check-circle me-2"></i>
+                Data extracted! Please review the fields below before saving.
+            </div>
+        </div>
+    </div>
+
+    <!-- Form -->
+    <div class="card shadow-sm">
+        <div class="card-header fw-semibold">
+            <i class="bi bi-pencil-square me-2"></i>Lebanese ID Details
+        </div>
+        <div class="card-body">
+            <form asp-action="SaveProfile" method="post">
+                @Html.AntiForgeryToken()
+                <div asp-validation-summary="ModelOnly" class="alert alert-danger"></div>
+
+                <!-- Document type -->
+                <div class="mb-4">
+                    <label asp-for="DocumentType" class="form-label fw-semibold"></label>
+                    <select asp-for="DocumentType" class="form-select" id="docType">
+                        <option value="NationalID">National ID (هوية)</option>
+                        <option value="Passport">Passport (جواز سفر)</option>
+                        <option value="ResidencyCard">Residency Card (إقامة)</option>
+                    </select>
+                </div>
+
+                <!-- Name -->
+                <h6 class="text-primary border-bottom pb-1 mb-3">Name / الاسم</h6>
+                <div class="row g-3 mb-4">
+                    <div class="col-md-6">
+                        <label asp-for="LastName" class="form-label"></label>
+                        <input asp-for="LastName" class="form-control af" placeholder="اللقب" />
+                        <span asp-validation-for="LastName" class="text-danger small"></span>
+                    </div>
+                    <div class="col-md-6">
+                        <label asp-for="FirstName" class="form-label"></label>
+                        <input asp-for="FirstName" class="form-control af" placeholder="الاسم" />
+                        <span asp-validation-for="FirstName" class="text-danger small"></span>
+                    </div>
+                    <div class="col-md-6">
+                        <label asp-for="FatherName" class="form-label"></label>
+                        <input asp-for="FatherName" class="form-control af" placeholder="اسم الأب" />
+                        <span asp-validation-for="FatherName" class="text-danger small"></span>
+                    </div>
+                    <div class="col-md-3">
+                        <label asp-for="MotherName" class="form-label"></label>
+                        <input asp-for="MotherName" class="form-control af" placeholder="اسم الأم" />
+                    </div>
+                    <div class="col-md-3">
+                        <label asp-for="MotherLastName" class="form-label"></label>
+                        <input asp-for="MotherLastName" class="form-control af" placeholder="لقب الأم" />
+                    </div>
+                </div>
+
+                <!-- Identity -->
+                <h6 class="text-primary border-bottom pb-1 mb-3">Identity / الهوية</h6>
+                <div class="row g-3 mb-4">
+                    <div class="col-md-6">
+                        <label asp-for="DocumentNumberMasked" class="form-label"></label>
+                        <input asp-for="DocumentNumberMasked" class="form-control af"
+                               placeholder="12-digit ID number (stored encrypted)" />
+                    </div>
+                    <div class="col-md-3">
+                        <label asp-for="RegistryNumber" class="form-label"></label>
+                        <input asp-for="RegistryNumber" class="form-control af" placeholder="رقم السجل" />
+                    </div>
+                    <div class="col-md-3">
+                        <label asp-for="DateOfBirth" class="form-label"></label>
+                        <input asp-for="DateOfBirth" type="date" class="form-control af" />
+                        <span asp-validation-for="DateOfBirth" class="text-danger small"></span>
+                    </div>
+                </div>
+
+                <!-- Lebanese location -->
+                <h6 class="text-primary border-bottom pb-1 mb-3">Lebanese Administrative Location / القيد</h6>
+                <div class="row g-3 mb-4">
+                    <div class="col-md-4">
+                        <label asp-for="Village" class="form-label"></label>
+                        <input asp-for="Village" class="form-control af" placeholder="البلدة / القرية" />
+                    </div>
+                    <div class="col-md-4">
+                        <label asp-for="District" class="form-label"></label>
+                        <input asp-for="District" class="form-control af" placeholder="القضاء" />
+                    </div>
+                    <div class="col-md-4">
+                        <label asp-for="Province" class="form-label"></label>
+                        <input asp-for="Province" class="form-control af" placeholder="المحافظة" />
+                    </div>
+                </div>
+
+                <input asp-for="ExtractionMethod" type="hidden" id="extractionMethod" />
+
+                <div id="reviewWarning" class="alert alert-warning d-none mb-3">
+                    <i class="bi bi-exclamation-triangle me-2"></i>
+                    Fields were auto-filled from your ID scan. Please review before saving.
+                </div>
+
+                <div class="d-flex gap-2">
+                    <button type="submit" class="btn btn-success flex-grow-1">
+                        <i class="bi bi-floppy me-1"></i>Save Profile
+                    </button>
+                    <a asp-action="Index" class="btn btn-outline-secondary">Cancel</a>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+
+@section Scripts {
+    <script>
+        const dropZone = document.getElementById('dropZone');
+        const fileInput = document.getElementById('idFile');
+
+        dropZone.addEventListener('click', () => fileInput.click());
+        dropZone.addEventListener('dragover', e => { e.preventDefault(); dropZone.style.background = '#e8f0fe'; });
+        dropZone.addEventListener('dragleave', () => dropZone.style.background = '');
+        dropZone.addEventListener('drop', e => {
+            e.preventDefault(); dropZone.style.background = '';
+            if (e.dataTransfer.files[0]) upload(e.dataTransfer.files[0]);
+        });
+        fileInput.addEventListener('change', () => { if (fileInput.files[0]) upload(fileInput.files[0]); });
+
+        async function upload(file) {
+            if (file.size > 5 * 1024 * 1024) { showError('File too large. Max 5 MB.'); return; }
+            document.getElementById('ocrSpinner').classList.remove('d-none');
+            document.getElementById('ocrError').classList.add('d-none');
+            document.getElementById('ocrSuccess').classList.add('d-none');
+
+            const fd = new FormData();
+            fd.append('IdImage', file);
+            fd.append('DocumentType', document.getElementById('docType').value);
+            fd.append('__RequestVerificationToken',
+                document.querySelector('input[name="__RequestVerificationToken"]').value);
+
+            try {
+                const res = await fetch('/AutoFill/UploadId', { method: 'POST', body: fd });
+                if (!res.ok) { const e = await res.json(); showError(e.error || 'Extraction failed.'); return; }
+                populate(await res.json());
+            } catch { showError('Unexpected error. Please try again.'); }
+            finally { document.getElementById('ocrSpinner').classList.add('d-none'); }
+        }
+
+        function populate(d) {
+            set('LastName',              d.lastName);
+            set('FirstName',             d.firstName);
+            set('FatherName',            d.fatherName);
+            set('MotherName',            d.motherName);
+            set('MotherLastName',        d.motherLastName);
+            set('DocumentNumberMasked',  d.documentNumberMasked);
+            set('RegistryNumber',        d.registryNumber);
+            set('DateOfBirth',           d.dateOfBirth?.substring(0, 10));
+            set('Village',               d.village);
+            set('District',              d.district);
+            set('Province',              d.province);
+            document.getElementById('extractionMethod').value = d.extractionMethod || 'OCR';
+            document.querySelectorAll('.af').forEach(el => { if (el.value) el.classList.add('border-warning'); });
+            document.getElementById('reviewWarning').classList.remove('d-none');
+            document.getElementById('ocrSuccess').classList.remove('d-none');
+        }
+
+        function set(name, val) {
+            const el = document.querySelector(`[name="${name}"]`);
+            if (el && val) el.value = val;
+        }
+
+        function showError(msg) {
+            const el = document.getElementById('ocrError');
+            el.textContent = msg;
+            el.classList.remove('d-none');
+        }
+    </script>
+}

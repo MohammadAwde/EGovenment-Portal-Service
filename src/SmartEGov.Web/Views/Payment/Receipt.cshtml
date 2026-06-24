@@ -1,0 +1,134 @@
+@model PaymentDto
+@{
+    ViewData["Title"] = "Payment Receipt";
+    var isPayPal = Model.Method == PaymentMethod.PayPal;
+    var statusBadge = Model.Status switch
+    {
+        PaymentStatus.Completed => "lb-approved",
+        PaymentStatus.Failed => "lb-rejected",
+        PaymentStatus.Refunded => "lb-submitted",
+        _ => "lb-review"
+    };
+}
+
+<div class="row justify-content-center">
+    <div class="col-md-6">
+        <div class="lb-receipt-card">
+            <div class="receipt-header">
+                <div class="d-flex align-items-center justify-content-center gap-2">
+                    <i class="bi bi-building" style="font-size:1.5rem;"></i>
+                    <div>
+                        <h4 class="mb-0">Payment Receipt</h4>
+                        <small style="opacity:.8;">Lebanese E-Government Portal</small>
+                    </div>
+                </div>
+            </div>
+            <div class="card-body p-4">
+                <div class="text-center mb-4">
+                    @if (Model.Status == PaymentStatus.Completed)
+                    {
+                        <div class="receipt-stamp" style="color:var(--lb-green);">
+                            <i class="bi bi-check-circle-fill"></i>
+                        </div>
+                        <h5 style="color:var(--lb-green);font-weight:700;">Payment Successful</h5>
+                    }
+                    else if (Model.Status == PaymentStatus.Failed)
+                    {
+                        <div class="receipt-stamp" style="color:var(--lb-red);">
+                            <i class="bi bi-x-circle-fill"></i>
+                        </div>
+                        <h5 style="color:var(--lb-red);font-weight:700;">Payment Failed</h5>
+                    }
+                    else
+                    {
+                        <span class="badge @statusBadge fs-6">@Model.Status</span>
+                    }
+                </div>
+
+                <hr style="border-style:dashed;border-color:var(--lb-border);" />
+
+                <dl class="lb-detail-grid row">
+                    <dt class="col-sm-5">Transaction No.</dt>
+                    <dd class="col-sm-7"><code>@Model.TransactionNumber</code></dd>
+
+                    <dt class="col-sm-5">Service</dt>
+                    <dd class="col-sm-7">@(Model.GovernmentServiceName ?? "—")</dd>
+
+                    <dt class="col-sm-5">Request Reference</dt>
+                    <dd class="col-sm-7">
+                        <a asp-controller="ServiceRequest" asp-action="Details" asp-route-id="@Model.ServiceRequestId"
+                           style="color:var(--lb-green);">
+                            @(Model.ServiceRequestReference ?? "—")
+                        </a>
+                    </dd>
+
+                    <dt class="col-sm-5">Amount</dt>
+                    <dd class="col-sm-7"><strong style="color:var(--lb-green);font-size:1.1rem;">@Model.Amount.ToString("N0") LBP</strong></dd>
+
+                    <dt class="col-sm-5">Payment Method</dt>
+                    <dd class="col-sm-7">
+                        @if (isPayPal)
+                        {
+                            <span><i class="bi bi-paypal me-1"></i>PayPal — @Model.PayPalEmail</span>
+                        }
+                        else
+                        {
+                            <span><i class="bi bi-credit-card me-1"></i>@Model.Method — **** @Model.CardLast4</span>
+                        }
+                    </dd>
+
+                    <dt class="col-sm-5">Status</dt>
+                    <dd class="col-sm-7"><span class="badge @statusBadge">@Model.Status</span></dd>
+
+                    <dt class="col-sm-5">Date</dt>
+                    <dd class="col-sm-7"><i class="bi bi-calendar3 me-1"></i>@(Model.CompletedAt?.ToString("g") ?? Model.CreatedAt.ToString("g"))</dd>
+
+                    @if (!string.IsNullOrEmpty(Model.FailureReason))
+                    {
+                        <dt class="col-sm-5">Reason</dt>
+                        <dd class="col-sm-7" style="color:var(--lb-red);">@Model.FailureReason</dd>
+                    }
+                    @* Diagnostic Stripe IDs for troubleshooting *@
+                    @* Stripe session id intentionally omitted from receipt view *@
+
+                    @if (!string.IsNullOrEmpty(Model.StripePaymentIntentId))
+                    {
+                        <dt class="col-sm-5">Stripe PaymentIntent</dt>
+                        <dd class="col-sm-7"><code>@Model.StripePaymentIntentId</code></dd>
+                    }
+                </dl>
+            </div>
+            <div class="card-footer text-center text-muted small" style="background:var(--lb-body-bg);border-top:2px dashed var(--lb-border);">
+                <i class="bi bi-building me-1"></i>Lebanese E-Government Portal — SmartEGov
+            </div>
+        </div>
+
+        <div class="mt-3 d-flex gap-2">
+            <a asp-controller="ServiceRequest" asp-action="Details" asp-route-id="@Model.ServiceRequestId"
+               class="btn btn-outline-secondary flex-fill">
+                <i class="bi bi-arrow-left me-1"></i>Back to Request
+            </a>
+            <a asp-action="Index" class="btn btn-lb-primary flex-fill">
+                <i class="bi bi-list-check me-1"></i>All Payments
+            </a>
+        </div>
+
+        <div class="mt-3">
+            @* Reconcile now button: forces a check with Stripe to update payment status *@
+            @if (Model.Status == SmartEGov.Domain.Enums.PaymentStatus.Pending)
+            {
+                <form asp-action="Reconcile" method="post" class="d-inline">
+                    @Html.AntiForgeryToken()
+                    <input type="hidden" name="paymentId" value="@Model.Id" />
+                    <button type="submit" class="btn btn-sm btn-outline-info">
+                        <i class="bi bi-arrow-repeat me-1"></i>Reconcile now
+                    </button>
+                </form>
+            }
+            else
+            {
+                <span class="small text-muted">No reconciliation needed for this status.</span>
+            }
+        </div>
+    </div>
+</div>

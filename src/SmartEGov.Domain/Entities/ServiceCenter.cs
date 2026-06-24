@@ -1,0 +1,15 @@
+﻿namespace SmartEGov.Domain.Entities;
+
+public class ServiceCenter
+{
+    public int Id { get; set; }
+    public string CenterName { get; set; } = string.Empty;
+    public string Department { get; set; } = string.Empty;
+    public string Address { get; set; } = string.Empty;
+    public double Latitude { get; set; }
+    public double Longitude { get; set; }
+    public string WorkingHours { get; set; } = string.Empty;
+    public string PhoneNumber { get; set; } = string.Empty;
+    public bool IsActive { get; set; } = true;
+    public ICollection<Appointment> Appointments { get; set; } = new List<Appointment>();
+}

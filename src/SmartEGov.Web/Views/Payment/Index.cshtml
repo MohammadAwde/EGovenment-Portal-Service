@@ -1,0 +1,96 @@
+@model IEnumerable<PaymentDto>
+@{
+    ViewData["Title"] = "My Payments";
+}
+
+<div class="lb-page-header">
+    <h2><i class="bi bi-credit-card me-2"></i>My Payments</h2>
+    <p>View your payment history and manage pending transactions.</p>
+</div>
+
+@if (Model.Any())
+{
+    <div class="card">
+        <div class="card-body p-0">
+            <div class="table-responsive">
+                <table class="table table-hover mb-0">
+                    <thead>
+                        <tr>
+                            <th>Transaction</th>
+                            <th>Service</th>
+                            <th>Request Ref</th>
+                            <th>Amount (LBP)</th>
+                            <th>Method</th>
+                            <th>Status</th>
+                            <th>Date</th>
+                            <th></th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        @foreach (var p in Model)
+                        {
+                            var statusBadge = p.Status switch
+                            {
+                                PaymentStatus.Pending => "lb-review",
+                                PaymentStatus.Completed => "lb-approved",
+                                PaymentStatus.Failed => "lb-rejected",
+                                PaymentStatus.Refunded => "lb-submitted",
+                                _ => "lb-cancelled"
+                            };
+                            <tr>
+                                <td><code>@p.TransactionNumber</code></td>
+                                <td>@(p.GovernmentServiceName ?? "—")</td>
+                                <td>
+                                    <a asp-controller="ServiceRequest" asp-action="Details" asp-route-id="@p.ServiceRequestId"
+                                       style="color:var(--lb-green);">
+                                        @(p.ServiceRequestReference ?? "—")
+                                    </a>
+                                </td>
+                                <td><strong>@p.Amount.ToString("N0")</strong></td>
+                                <td>
+                                    @if (p.Method == PaymentMethod.PayPal)
+                                    {
+                                        <span class="badge lb-submitted">PayPal</span>
+                                    }
+                                    else if (p.Method == PaymentMethod.CreditCard)
+                                    {
+                                        <span class="badge" style="background:#2d3436;">Credit Card</span>
+                                    }
+                                    else
+                                    {
+                                        <span class="badge lb-cancelled">Debit Card</span>
+                                    }
+                                </td>
+                                <td><span class="badge @statusBadge">@p.Status</span></td>
+                                <td><small><i class="bi bi-clock me-1"></i>@p.CreatedAt.ToString("g")</small></td>
+                                <td>
+                                    @if (p.Status == PaymentStatus.Completed)
+                                    {
+                                        <a asp-action="Receipt" asp-route-paymentId="@p.Id"
+                                           class="btn btn-sm btn-lb-primary">
+                                            <i class="bi bi-receipt me-1"></i>Receipt
+                                        </a>
+                                    }
+                                    else if (p.Status == PaymentStatus.Pending)
+                                    {
+                                        <a asp-action="Process" asp-route-paymentId="@p.Id"
+                                           class="btn btn-sm btn-lb-gold">
+                                            <i class="bi bi-credit-card me-1"></i>Complete
+                                        </a>
+                                    }
+                                </td>
+                            </tr>
+                        }
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+}
+else
+{
+    <div class="lb-empty-state">
+        <i class="bi bi-wallet2"></i>
+        <p>No payment records found.</p>
+    </div>
+}

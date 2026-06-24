@@ -1,0 +1,271 @@
+﻿<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>@ViewData["Title"] - Lebanese E-Government Portal</title>
+    <link rel="stylesheet" href="~/lib/bootstrap/dist/css/bootstrap.min.css" />
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.min.css" crossorigin="anonymous" />
+    <!-- Local fallback: only include if local file exists to avoid MIME/404 warnings when CDN is blocked -->
+    @{
+        try
+        {
+            var env = Context.RequestServices.GetService(typeof(Microsoft.AspNetCore.Hosting.IWebHostEnvironment)) as Microsoft.AspNetCore.Hosting.IWebHostEnvironment;
+            var fileExists = false;
+            if (env != null)
+            {
+                var fi = env.WebRootFileProvider.GetFileInfo("lib/bootstrap-icons/font/bootstrap-icons.min.css");
+                fileExists = fi.Exists;
+            }
+
+            if (fileExists)
+            {
+                <link rel="stylesheet" href="~/lib/bootstrap-icons/font/bootstrap-icons.min.css" asp-append-version="true" />
+            }
+        }
+        catch
+        {
+            // ignore - don't render local fallback if any error occurs
+        }
+    }
+    <link rel="stylesheet" href="~/css/site.css" asp-append-version="true" />
+</head>
+<body>
+    <!-- Top announcement bar -->
+    <div class="lb-topbar d-none d-md-block">
+        <div class="container-fluid px-4 d-flex justify-content-between align-items-center">
+            <span><i class="bi bi-geo-alt-fill me-1"></i> Lebanese Republic — E-Government Service Portal</span>
+            <span>
+                <i class="bi bi-telephone-fill me-1"></i> Hotline: <a href="tel:1700">1700</a>
+                <span class="mx-2">|</span>
+                <i class="bi bi-envelope-fill me-1"></i> <a href="mailto:info@egov.gov.lb">info&#64;egov.gov.lb</a>
+            </span>
+        </div>
+    </div>
+
+    <!-- Main navbar -->
+    <nav class="navbar navbar-expand-lg lb-navbar">
+        <div class="container-fluid px-4">
+            <a class="navbar-brand" asp-controller="Home" asp-action="Index">
+                <img src="~/images/cedar.svg" alt="" class="brand-icon" style="color:#fff;filter:brightness(0) invert(1);" />
+                <div>
+                    <div style="line-height:1.1;">SmartEGov</div>
+                    <div style="font-size:.65rem;font-weight:400;opacity:.7;">الحكومة الإلكترونية</div>
+                </div>
+            </a>
+            <button class="navbar-toggler border-0" type="button" data-bs-toggle="collapse" data-bs-target="#mainNav"
+                    aria-controls="mainNav" aria-expanded="false" aria-label="Toggle navigation">
+                <span class="navbar-toggler-icon"></span>
+            </button>
+            <div class="collapse navbar-collapse" id="mainNav">
+                <ul class="navbar-nav me-auto">
+                    <li class="nav-item">
+                        <a class="nav-link" asp-controller="Home" asp-action="Index">
+                            <i class="bi bi-house-door me-1"></i>Home
+                        </a>
+                    </li>
+                    @if (User.Identity != null && User.Identity.IsAuthenticated)
+                    {
+                        @if (User.IsInRole("Citizen"))
+                        {
+                            <li class="nav-item">
+                                <a class="nav-link" asp-controller="Citizen" asp-action="Dashboard">
+                                    <i class="bi bi-speedometer2 me-1"></i>Dashboard
+                                </a>
+                            </li>
+                        }
+                        @if (User.IsInRole("Officer"))
+                        {
+                            <li class="nav-item">
+                                <a class="nav-link" asp-controller="Officer" asp-action="Dashboard">
+                                    <i class="bi bi-speedometer2 me-1"></i>Dashboard
+                                </a>
+                            </li>
+                            <li class="nav-item">
+                                <a class="nav-link" asp-controller="Officer" asp-action="Signature">
+                                    <i class="bi bi-vector-pen me-1"></i>My Signature
+                                </a>
+                            </li>
+                        }
+                        <li class="nav-item">
+                            <a class="nav-link" asp-controller="ServiceRequest" asp-action="Index">
+                                <i class="bi bi-file-earmark-text me-1"></i>My Requests
+                            </a>
+                        </li>
+                        @if (User.IsInRole("Admin"))
+                        {
+                            <a asp-controller="Admin" asp-action="Appointments" class="nav-link">
+                                <i class="bi bi-calendar-check me-2"></i>Appointments
+                            </a>
+                        }
+                        @if (User.IsInRole("Citizen"))
+                        {
+                            <a asp-controller="Appointment" asp-action="Index" class="nav-link">
+                                <i class="bi bi-calendar-check me-2"></i>My Appointments
+                            </a>
+                        }
+
+                        @if (User.IsInRole("Citizen"))
+                        {
+                            <li class="nav-item">
+                                <a class="nav-link" asp-controller="Payment" asp-action="Index">
+                                    <i class="bi bi-credit-card me-1"></i>My Payments
+                                </a>
+                            </li>
+                            <li class="nav-item">
+                                <a class="nav-link" asp-controller="Citizen" asp-action="Index">
+                                    <i class="bi bi-person me-1"></i>Profile
+                                </a>
+                            </li>
+                        }
+                        @if (User.IsInRole("Officer") || User.IsInRole("Admin"))
+                        {
+                            <li class="nav-item">
+                                <a class="nav-link" asp-controller="ServiceRequest" asp-action="Pending">
+                                    <i class="bi bi-hourglass-split me-1"></i>Pending
+                                </a>
+                            </li>
+                        }
+                        @if (User.IsInRole("Admin"))
+                        {
+                            <li class="nav-item dropdown">
+                                <a class="nav-link dropdown-toggle" href="#" role="button" data-bs-toggle="dropdown">
+                                    <i class="bi bi-shield-lock me-1"></i>Admin
+                                </a>
+                                <ul class="dropdown-menu">
+                                    <li><a class="dropdown-item" asp-controller="Admin" asp-action="Index"><i class="bi bi-grid me-2"></i>Dashboard</a></li>
+                                    <li><a class="dropdown-item" asp-controller="Admin" asp-action="Users"><i class="bi bi-people me-2"></i>Users</a></li>
+                                    <li><a class="dropdown-item" asp-controller="Admin" asp-action="GovernmentServices"><i class="bi bi-building me-2"></i>Services</a></li>
+                                    <li><a class="dropdown-item" asp-controller="Admin" asp-action="OfficerAssignments"><i class="bi bi-person-badge me-2"></i>Officer Assignments</a></li>
+                                    <li><a class="dropdown-item" asp-controller="Admin" asp-action="AuditLogs"><i class="bi bi-journal-text me-2"></i>Audit Logs</a></li>
+                                    <li><a class="dropdown-item" href="/admin/payment-diagnostics"><i class="bi bi-tools me-2"></i>Payment Diagnostics</a></li>
+                                </ul>
+                            </li>
+                        }
+                        <li class="nav-item">
+                            @await Component.InvokeAsync("NotificationBadge")
+                        </li>
+                    }
+                </ul>
+                <ul class="navbar-nav align-items-center">
+                    @if (User.Identity != null && User.Identity.IsAuthenticated)
+                    {
+                        <li class="nav-item">
+                            <span class="nav-link" style="opacity:.7;"><i class="bi bi-person-circle me-1"></i>@User.Identity.Name</span>
+                        </li>
+                        <li class="nav-item">
+                            <form asp-controller="Account" asp-action="Logout" method="post">
+                                <button type="submit" class="nav-link btn btn-link" style="color:rgba(255,255,255,.85)!important;">
+                                    <i class="bi bi-box-arrow-right me-1"></i>Logout
+                                </button>
+                            </form>
+                        </li>
+                    }
+                    else
+                    {
+                        <li class="nav-item">
+                            <a class="nav-link btn-auth" asp-controller="Account" asp-action="Login">Login</a>
+                        </li>
+                        <li class="nav-item">
+                            <a class="nav-link btn-auth btn-auth-primary" asp-controller="Account" asp-action="Register">Register</a>
+                        </li>
+                    }
+                </ul>
+            </div>
+        </div>
+    </nav>
+
+    <!-- Content -->
+    <div class="container lb-page-container">
+        @if (TempData["Success"] != null)
+        {
+            <div class="alert alert-success alert-dismissible fade show lb-toast" role="alert">
+                <i class="bi bi-check-circle-fill me-2"></i>@TempData["Success"]
+                <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+            </div>
+        }
+        @if (TempData["Error"] != null)
+        {
+            <div class="alert alert-danger alert-dismissible fade show lb-toast" role="alert">
+                <i class="bi bi-exclamation-triangle-fill me-2"></i>@TempData["Error"]
+                <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+            </div>
+        }
+        <main role="main" class="pb-3">
+            @RenderBody()
+        </main>
+    </div>
+
+    <!-- Footer -->
+    <footer class="lb-footer">
+        <div class="container">
+            <div class="row">
+                <div class="col-md-4 mb-3 mb-md-0">
+                    <h6>Lebanese E-Government Portal</h6>
+                    <p class="small mb-0">
+                        Empowering citizens with fast, transparent, and secure
+                        access to government services across Lebanon.
+                    </p>
+                </div>
+                <div class="col-md-4 mb-3 mb-md-0">
+                    <h6>Quick Links</h6>
+                    <ul class="list-unstyled small mb-0">
+                        <li><a asp-controller="Home" asp-action="Index">Home</a></li>
+                        <li><a asp-controller="Account" asp-action="Register">Create Account</a></li>
+                        <li><a asp-controller="Home" asp-action="Privacy">Privacy Policy</a></li>
+                    </ul>
+                </div>
+                <div class="col-md-4">
+                    <h6>Contact</h6>
+                    <ul class="list-unstyled small mb-0">
+                        <li><i class="bi bi-telephone me-1"></i> Hotline: 1700</li>
+                        <li><i class="bi bi-envelope me-1"></i> info&#64;egov.gov.lb</li>
+                        <li><i class="bi bi-geo-alt me-1"></i> Beirut, Lebanon</li>
+                    </ul>
+                </div>
+            </div>
+        </div>
+    </footer>
+    <div class="lb-footer-bottom text-center">
+        <img src="~/images/cedar.svg" alt="" class="cedar-sm me-1" style="filter:brightness(0) invert(1);" />
+        &copy; @DateTime.Now.Year Lebanese Republic — All Rights Reserved
+    </div>
+
+    <!-- Scroll to top -->
+    <button id="scrollTopBtn" class="lb-scroll-top" title="Back to top">
+        <i class="bi bi-chevron-up"></i>
+    </button>
+
+    <script src="~/lib/jquery/dist/jquery.min.js"></script>
+    <script src="~/lib/bootstrap/dist/js/bootstrap.bundle.min.js"></script>
+    <script src="~/js/app.js" asp-append-version="true"></script>
+    <script>
+        // Poll for unread notifications every 20 seconds
+        (function () {
+            var badge = document.getElementById('notification-unread-count');
+            if (!badge) return;
+
+            async function refresh() {
+                try {
+                    var res = await fetch('/Notification/UnreadCount');
+                    if (!res.ok) return;
+                    var count = await res.json();
+                    if (count && count > 0) {
+                        badge.style.display = 'inline-block';
+                        badge.textContent = count;
+                    } else {
+                        badge.style.display = 'none';
+                    }
+                } catch (e) {
+                    // ignore
+                }
+            }
+
+            // initial
+            refresh();
+            setInterval(refresh, 20000);
+        })();
+    </script>
+    @await RenderSectionAsync("Scripts", required: false)
+</body>
+</html>

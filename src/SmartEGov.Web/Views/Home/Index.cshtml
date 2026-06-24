@@ -1,0 +1,138 @@
+﻿@{
+    ViewData["Title"] = "Home";
+}
+
+<!-- Hero Section -->
+<section class="lb-hero" style="margin:-1.5rem -0.75rem 2rem;padding-left:0.75rem;padding-right:0.75rem;">
+    <img src="~/images/cedar.svg" alt="" class="cedar-watermark" style="filter:brightness(0) invert(1);" />
+    <div class="container">
+        <div class="row align-items-center">
+            <div class="col-lg-7">
+                <h1>Lebanese E-Government Portal</h1>
+                <div class="lb-divider" style="margin:0.5rem 0 1rem;"></div>
+                <p class="lead mb-4">
+                    Your single gateway to government services — apply, track, and pay online.
+                    Fast, transparent, and secure.
+                </p>
+                @if (User.Identity == null || !User.Identity.IsAuthenticated)
+                {
+                    <a asp-controller="Account" asp-action="Register" class="btn btn-lb-gold btn-lg me-2">
+                        <i class="bi bi-person-plus me-1"></i> Get Started
+                    </a>
+                    <a asp-controller="Account" asp-action="Login" class="btn btn-lb-outline btn-lg">
+                        <i class="bi bi-box-arrow-in-right me-1"></i> Login
+                    </a>
+                }
+                else
+                {
+                    <a asp-controller="ServiceRequest" asp-action="Create" class="btn btn-lb-gold btn-lg me-2">
+                        <i class="bi bi-plus-circle me-1"></i> New Request
+                    </a>
+                    <a asp-controller="ServiceRequest" asp-action="Index" class="btn btn-lb-outline btn-lg">
+                        <i class="bi bi-list-check me-1"></i> My Requests
+                    </a>
+                }
+            </div>
+            <div class="col-lg-5 text-center d-none d-lg-block">
+                <img src="~/images/cedar.svg" alt="Lebanese Cedar" style="width:200px;opacity:.25;filter:brightness(0) invert(1);" />
+            </div>
+        </div>
+    </div>
+</section>
+
+<!-- Stats bar -->
+<div class="row g-3 mb-5">
+    <div class="col-6 col-md-3">
+        <div class="lb-stat-card green">
+            <div class="card-body text-center py-3">
+                <div class="stat-number" data-counter="12">0</div>
+                <div class="stat-label">Services Available</div>
+            </div>
+        </div>
+    </div>
+    <div class="col-6 col-md-3">
+        <div class="lb-stat-card red">
+            <div class="card-body text-center py-3">
+                <div class="stat-number" data-counter="7">0</div>
+                <div class="stat-label">Departments</div>
+            </div>
+        </div>
+    </div>
+    <div class="col-6 col-md-3">
+        <div class="lb-stat-card gold">
+            <div class="card-body text-center py-3">
+                <div class="stat-number" data-counter="3">0</div>
+                <div class="stat-label">Payment Methods</div>
+            </div>
+        </div>
+    </div>
+    <div class="col-6 col-md-3">
+        <div class="lb-stat-card dark">
+            <div class="card-body text-center py-3">
+                <div class="stat-number" data-counter="24">0</div>
+                <div class="stat-label">Online 24/7</div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- How it works -->
+<h3 class="lb-section-title">How It Works</h3>
+<div class="lb-divider"></div>
+<div class="row g-4 mb-5">
+    <div class="col-md-4">
+        <div class="lb-service-card">
+            <div class="service-icon"><i class="bi bi-pencil-square"></i></div>
+            <h5>1. Submit Your Request</h5>
+            <p>Choose a service, fill in details, and upload required documents — all from your browser.</p>
+        </div>
+    </div>
+    <div class="col-md-4">
+        <div class="lb-service-card">
+            <div class="service-icon"><i class="bi bi-search"></i></div>
+            <h5>2. Track &amp; Pay</h5>
+            <p>Monitor real-time progress, receive notifications, and pay fees securely online.</p>
+        </div>
+    </div>
+    <div class="col-md-4">
+        <div class="lb-service-card">
+            <div class="service-icon"><i class="bi bi-check2-circle"></i></div>
+            <h5>3. Get Approved</h5>
+            <p>Officers review your request through a transparent approval workflow. Done!</p>
+        </div>
+    </div>
+</div>
+
+<!-- Services highlight -->
+<h3 class="lb-section-title">Popular Services</h3>
+<div class="lb-divider"></div>
+<div class="row g-3 mb-4">
+    <div class="col-sm-6 col-lg-3">
+        <div class="lb-service-card">
+            <div class="service-icon"><i class="bi bi-person-badge"></i></div>
+            <h5>National ID</h5>
+            <p>Apply for or renew your Lebanese national identity card.</p>
+        </div>
+    </div>
+    <div class="col-sm-6 col-lg-3">
+        <div class="lb-service-card">
+            <div class="service-icon"><i class="bi bi-airplane"></i></div>
+            <h5>Passport</h5>
+            <p>Apply for a biometric passport through General Security.</p>
+        </div>
+    </div>
+    <div class="col-sm-6 col-lg-3">
+        <div class="lb-service-card">
+            <div class="service-icon"><i class="bi bi-car-front"></i></div>
+            <h5>Driver License</h5>
+            <p>New or renewal driving license application.</p>
+        </div>
+    </div>
+    <div class="col-sm-6 col-lg-3">
+        <div class="lb-service-card">
+            <div class="service-icon"><i class="bi bi-building"></i></div>
+            <h5>Building Permit</h5>
+            <p>Construction and building permit applications.</p>
+        </div>
+    </div>
+</div>

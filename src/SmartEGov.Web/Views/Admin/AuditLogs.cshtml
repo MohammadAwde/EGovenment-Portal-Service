@@ -1,0 +1,60 @@
+@model IEnumerable<AuditLogDto>
+@{
+    ViewData["Title"] = "Audit Logs";
+}
+
+<div class="lb-page-header d-flex justify-content-between align-items-center flex-wrap gap-2">
+    <div>
+        <h2><i class="bi bi-journal-text me-2"></i>Audit Logs</h2>
+        <p>Complete system activity log for compliance and review.</p>
+    </div>
+    <div class="lb-page-actions">
+        <a asp-action="Index" class="btn btn-lb-outline">
+            <i class="bi bi-arrow-left me-1"></i>Back to Dashboard
+        </a>
+    </div>
+</div>
+
+@if (Model.Any())
+{
+    <div class="card">
+        <div class="card-body p-0">
+            <div class="table-responsive">
+                <table class="table table-hover mb-0">
+                    <thead>
+                        <tr>
+                            <th>Timestamp</th>
+                            <th>User</th>
+                            <th>Action</th>
+                            <th>Entity</th>
+                            <th>Entity ID</th>
+                            <th>Old Values</th>
+                            <th>New Values</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        @foreach (var log in Model)
+                        {
+                            <tr>
+                                <td><small><i class="bi bi-clock me-1"></i>@log.Timestamp.ToString("g")</small></td>
+                                <td>@(log.UserName ?? "System")</td>
+                                <td><span class="badge lb-submitted">@log.Action</span></td>
+                                <td>@log.EntityName</td>
+                                <td><code>@(log.EntityId ?? "—")</code></td>
+                                <td class="text-muted small" style="max-width:200px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;" title="@(log.OldValues ?? "")">@(log.OldValues ?? "—")</td>
+                                <td class="text-muted small" style="max-width:200px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;" title="@(log.NewValues ?? "")">@(log.NewValues ?? "—")</td>
+                            </tr>
+                        }
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+}
+else
+{
+    <div class="lb-empty-state">
+        <i class="bi bi-journal-x"></i>
+        <p>No audit logs recorded yet.</p>
+    </div>
+}

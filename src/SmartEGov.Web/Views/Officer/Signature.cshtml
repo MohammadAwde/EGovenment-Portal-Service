@@ -1,0 +1,214 @@
+@{
+    ViewData["Title"] = "My Digital Signature";
+    var currentSignaturePath = ViewBag.CurrentSignaturePath as string;
+}
+
+<div class="lb-page-header">
+    <h2><i class="bi bi-vector-pen me-2"></i>My Digital Signature</h2>
+    <p>Your digital signature is applied to every approval or rejection you make. Draw or upload below.</p>
+</div>
+
+@if (TempData["Success"] != null)
+{
+    <div class="alert alert-success alert-dismissible fade show">
+        <i class="bi bi-check-circle me-1"></i>@TempData["Success"]
+        <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+    </div>
+}
+@if (TempData["Error"] != null)
+{
+    <div class="alert alert-danger alert-dismissible fade show">
+        <i class="bi bi-exclamation-triangle me-1"></i>@TempData["Error"]
+        <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+    </div>
+}
+
+<div class="row">
+    <div class="col-md-8">
+        @if (!string.IsNullOrWhiteSpace(currentSignaturePath))
+        {
+            <div class="lb-form-card mb-4" style="border-left:4px solid var(--lb-green);">
+                <div class="d-flex justify-content-between align-items-center mb-3">
+                    <h6 class="text-uppercase fw-bold mb-0" style="color:var(--lb-green-dark);letter-spacing:.04em;">
+                        <i class="bi bi-check-circle me-1"></i>Current Signature
+                    </h6>
+                    <form asp-action="RemoveSignature" method="post" class="d-inline">
+                        <button type="submit" class="btn btn-sm btn-outline-danger"
+                                onclick="return confirm('Remove your digital signature?')">
+                            <i class="bi bi-trash me-1"></i>Remove
+                        </button>
+                    </form>
+                </div>
+                <div class="text-center p-3 rounded" style="background:var(--lb-body-bg);">
+                    <img src="@currentSignaturePath" alt="Current Signature"
+                         style="max-height: 120px; max-width: 100%;" class="border rounded p-2 bg-white" />
+                </div>
+            </div>
+        }
+
+        <div class="lb-form-card mb-4">
+            <ul class="nav nav-tabs mb-3" role="tablist" style="border-bottom-color:var(--lb-green);">
+                <li class="nav-item">
+                    <button class="nav-link active" data-bs-toggle="tab" data-bs-target="#drawTab" type="button" role="tab"
+                            style="color:var(--lb-green-dark);font-weight:600;">
+                        <i class="bi bi-pencil me-1"></i>Draw Signature
+                    </button>
+                </li>
+                <li class="nav-item">
+                    <button class="nav-link" data-bs-toggle="tab" data-bs-target="#uploadTab" type="button" role="tab"
+                            style="color:var(--lb-green-dark);font-weight:600;">
+                        <i class="bi bi-upload me-1"></i>Upload Image
+                    </button>
+                </li>
+            </ul>
+            <div class="tab-content">
+                <!-- Draw Tab -->
+                <div class="tab-pane fade show active" id="drawTab" role="tabpanel">
+                    <p class="text-muted small mb-2">Use your mouse or touch to draw your signature in the box below.</p>
+                    <div class="border rounded bg-white mb-3 position-relative" style="touch-action: none;">
+                        <canvas id="signatureCanvas" width="600" height="200"
+                                style="width: 100%; cursor: crosshair; display: block;"></canvas>
+                    </div>
+                    <div class="d-flex gap-2 mb-3">
+                        <button type="button" id="clearCanvas" class="btn btn-outline-secondary btn-sm">
+                            <i class="bi bi-eraser me-1"></i>Clear
+                        </button>
+                        <div class="d-flex align-items-center gap-2 ms-auto">
+                            <label class="form-label mb-0 small">Pen Color:</label>
+                            <input type="color" id="penColor" value="#000080" class="form-control form-control-sm form-control-color" style="width:40px;height:32px;" />
+                            <label class="form-label mb-0 small ms-2">Width:</label>
+                            <input type="range" id="penWidth" min="1" max="5" value="2" class="form-range" style="width:80px;" />
+                        </div>
+                    </div>
+                    <form asp-action="UploadSignature" method="post">
+                        <input type="hidden" id="signatureDataInput" name="signatureData" />
+                        <button type="submit" id="saveDrawnSignature" class="btn btn-lb-primary">
+                            <i class="bi bi-check-lg me-1"></i>Save Drawn Signature
+                        </button>
+                    </form>
+                </div>
+
+                <!-- Upload Tab -->
+                <div class="tab-pane fade" id="uploadTab" role="tabpanel">
+                    <p class="text-muted small mb-2">Upload a PNG or JPEG image of your signature (max 2 MB). A transparent background works best.</p>
+                    <form asp-action="UploadSignature" method="post" enctype="multipart/form-data">
+                        <div class="mb-3">
+                            <input type="file" name="signatureFile" class="form-control" accept=".png,.jpg,.jpeg" required />
+                        </div>
+                        <div id="uploadPreviewContainer" class="mb-3 text-center d-none">
+                            <img id="uploadPreview" alt="Preview" class="border rounded p-2 bg-white"
+                                 style="max-height: 120px; max-width: 100%;" />
+                        </div>
+                        <button type="submit" class="btn btn-lb-primary">
+                            <i class="bi bi-upload me-1"></i>Upload Signature
+                        </button>
+                    </form>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="col-md-4">
+        <div class="lb-info-card">
+            <h6><i class="bi bi-shield-check me-1"></i>About Digital Signatures</h6>
+            <ul class="list-unstyled mb-0 small">
+                <li class="mb-2"><i class="bi bi-shield-check text-success me-1"></i> Your signature is stamped on every approval step you process.</li>
+                <li class="mb-2"><i class="bi bi-eye text-info me-1"></i> Citizens and admins can see your signature on approved/rejected steps.</li>
+                <li class="mb-2"><i class="bi bi-exclamation-triangle text-warning me-1"></i> You cannot approve or reject requests without a signature on file.</li>
+                <li><i class="bi bi-arrow-repeat text-primary me-1"></i> You can update your signature at any time. Previous approvals keep the old signature.</li>
+            </ul>
+        </div>
+    </div>
+</div>
+
+@section Scripts {
+<script>
+    (function () {
+        const canvas = document.getElementById('signatureCanvas');
+        const ctx = canvas.getContext('2d');
+        const colorInput = document.getElementById('penColor');
+        const widthInput = document.getElementById('penWidth');
+        let drawing = false;
+        let hasDrawn = false;
+
+        function getPos(e) {
+            const rect = canvas.getBoundingClientRect();
+            const scaleX = canvas.width / rect.width;
+            const scaleY = canvas.height / rect.height;
+            const clientX = e.touches ? e.touches[0].clientX : e.clientX;
+            const clientY = e.touches ? e.touches[0].clientY : e.clientY;
+            return {
+                x: (clientX - rect.left) * scaleX,
+                y: (clientY - rect.top) * scaleY
+            };
+        }
+
+        function startDraw(e) {
+            drawing = true;
+            hasDrawn = true;
+            const pos = getPos(e);
+            ctx.beginPath();
+            ctx.moveTo(pos.x, pos.y);
+            e.preventDefault();
+        }
+
+        function draw(e) {
+            if (!drawing) return;
+            const pos = getPos(e);
+            ctx.strokeStyle = colorInput.value;
+            ctx.lineWidth = parseInt(widthInput.value);
+            ctx.lineCap = 'round';
+            ctx.lineJoin = 'round';
+            ctx.lineTo(pos.x, pos.y);
+            ctx.stroke();
+            e.preventDefault();
+        }
+
+        function stopDraw(e) {
+            drawing = false;
+            if (e) e.preventDefault();
+        }
+
+        canvas.addEventListener('mousedown', startDraw);
+        canvas.addEventListener('mousemove', draw);
+        canvas.addEventListener('mouseup', stopDraw);
+        canvas.addEventListener('mouseleave', stopDraw);
+        canvas.addEventListener('touchstart', startDraw, { passive: false });
+        canvas.addEventListener('touchmove', draw, { passive: false });
+        canvas.addEventListener('touchend', stopDraw);
+
+        document.getElementById('clearCanvas').addEventListener('click', function () {
+            ctx.clearRect(0, 0, canvas.width, canvas.height);
+            hasDrawn = false;
+        });
+
+        document.getElementById('saveDrawnSignature').closest('form').addEventListener('submit', function (e) {
+            if (!hasDrawn) {
+                e.preventDefault();
+                alert('Please draw your signature first.');
+                return;
+            }
+            document.getElementById('signatureDataInput').value = canvas.toDataURL('image/png');
+        });
+
+        // File upload preview
+        const fileInput = document.querySelector('input[name="signatureFile"]');
+        if (fileInput) {
+            fileInput.addEventListener('change', function () {
+                const container = document.getElementById('uploadPreviewContainer');
+                const img = document.getElementById('uploadPreview');
+                if (this.files && this.files[0]) {
+                    const reader = new FileReader();
+                    reader.onload = function (e) {
+                        img.src = e.target.result;
+                        container.classList.remove('d-none');
+                    };
+                    reader.readAsDataURL(this.files[0]);
+                } else {
+                    container.classList.add('d-none');
+                }
+            });
+        }
+    })();
+</script>
+}

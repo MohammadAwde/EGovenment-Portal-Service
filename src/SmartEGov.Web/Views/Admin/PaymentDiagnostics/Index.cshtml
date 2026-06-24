@@ -1,0 +1,47 @@
+@model SmartEGov.Web.Controllers.Admin.PaymentDiagnosticsController.DiagnosticModel
+@{
+    var ModelTyped = (SmartEGov.Web.Controllers.Admin.PaymentDiagnosticsController.DiagnosticModel)ViewData.Model!;
+    ViewData["Title"] = "Payments — Users Who Paid";
+}
+
+<h3>Users Who Paid</h3>
+
+@if (!string.IsNullOrWhiteSpace(ModelTyped.Message))
+{
+    <div class="alert alert-info">@ModelTyped.Message</div>
+}
+
+<table class="table table-striped mt-3">
+    <thead>
+        <tr>
+            <th>Transaction</th>
+            <th>Amount</th>
+            <th>Service</th>
+            <th>Request Ref</th>
+            <th>User</th>
+            <th>Email</th>
+            <th>Completed At</th>
+        </tr>
+    </thead>
+    <tbody>
+        @if (ModelTyped.PaidUsers != null && ModelTyped.PaidUsers.Any())
+        {
+            foreach (var p in ModelTyped.PaidUsers)
+            {
+                <tr>
+                    <td><code>@p.TransactionNumber</code></td>
+                    <td>@p.Amount.ToString("N0") LBP</td>
+                    <td>@p.ServiceName</td>
+                    <td>@p.ServiceRequestReference</td>
+                    <td>@p.UserFullName</td>
+                    <td>@p.UserEmail</td>
+                    <td>@(p.CompletedAt?.ToString("g") ?? "—")</td>
+                </tr>
+            }
+        }
+        else
+        {
+            <tr><td colspan="7" class="text-muted">No paid users found.</td></tr>
+        }
+    </tbody>
+</table>

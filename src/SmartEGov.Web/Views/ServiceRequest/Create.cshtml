@@ -1,0 +1,387 @@
+@model ServiceRequestDto
+@{
+    ViewData["Title"] = "New Service Request";
+    var maxSizeMB = ViewBag.MaxFileSizeMB as int? ?? 10;
+    var allowedExtensions = ViewBag.AllowedExtensions as string ?? "";
+    var allowedExtensionsAccept = ViewBag.AllowedExtensionsAccept as string ?? "";
+}
+
+<div class="lb-page-header">
+    <h2><i class="bi bi-plus-circle me-2"></i>Submit New Service Request</h2>
+    <p>Choose a service, provide details, and upload any required documents.</p>
+</div>
+
+<div class="row">
+    <div class="col-lg-8">
+        <div class="lb-form-card">
+            <form asp-action="Create" method="post" enctype="multipart/form-data" id="serviceRequestForm" novalidate>
+                @Html.AntiForgeryToken()
+                <input type="hidden" id="ServiceRequestId" name="Id" value="@Model.Id" />
+                <div asp-validation-summary="All" class="alert alert-danger" role="alert"></div>
+                
+                <div class="mb-3">
+                    <label asp-for="GovernmentServiceId" class="form-label">
+                        <span class="text-danger">*</span>Government Service
+                    </label>
+                    <div class="mb-2">
+                        <input id="serviceSearchCitizen" type="search" class="form-control form-control-sm" placeholder="Search services..." aria-label="Search services" />
+                    </div>
+                    <select asp-for="GovernmentServiceId" asp-items="@(ViewBag.Services as SelectList)" class="form-select" required id="GovernmentServiceId">
+                        <option value="">-- Select a Service --</option>
+                    </select>
+                    <span asp-validation-for="GovernmentServiceId" class="text-danger small"></span>
+                </div>
+
+                <div id="requirements-section" class="mb-3" style="display:none;">
+                    <div class="card border-0" style="background:var(--lb-green-light);border-left:4px solid var(--lb-green)!important;">
+                        <div class="card-header bg-transparent border-0" style="color:var(--lb-green-dark);font-weight:700;">
+                            <i class="bi bi-file-earmark-text me-1"></i> Required Documents for this Service
+                        </div>
+                        <ul id="requirements-list" class="list-group list-group-flush">
+                        </ul>
+                    </div>
+                </div>
+
+                <div class="mb-3">
+                    <label asp-for="Notes" class="form-label">Notes / Additional Information</label>
+                    <textarea asp-for="Notes" class="form-control" rows="3" placeholder="Any extra details for the reviewing officer..."></textarea>
+                    <span asp-validation-for="Notes" class="text-danger small"></span>
+                </div>
+
+                <div class="mb-4">
+                    <label class="form-label"><i class="bi bi-paperclip me-1"></i>Attach Documents (optional)</label>
+                    <div class="card border-2 border-dashed p-4 text-center" id="dropZone" style="cursor:pointer;background-color:#f8f9fa;border-color:#dee2e6!important;">
+                        <input type="file" name="documents" id="fileInput" class="form-control d-none" multiple accept="@allowedExtensionsAccept" />
+                        <div class="mb-2">
+                            <i class="bi bi-cloud-arrow-up text-muted" style="font-size:2.5rem;"></i>
+                        </div>
+                        <p class="mb-2"><strong>Drag files here or click to select</strong></p>
+                        <p class="text-muted mb-0 small">Max file size: @maxSizeMB MB | Allowed types: @allowedExtensions</p>
+                    </div>
+                    
+                    <!-- File preview list -->
+                    <div id="fileList" class="mt-3" style="display:none;">
+                        <h6 class="mb-2">Selected Files:</h6>
+                        <ul id="filePreviewList" class="list-group">
+                        </ul>
+                    </div>
+                </div>
+
+                <div class="d-flex gap-2">
+                    <button type="submit" name="saveAsDraft" value="true" class="btn btn-outline-secondary" id="saveDraftBtn">
+                        <i class="bi bi-save me-1"></i>Save as Draft
+                    </button>
+                    <button type="submit" class="btn btn-lb-primary" id="submitBtn">
+                        <i class="bi bi-send me-1"></i>Submit Request
+                    </button>
+                    <a asp-action="Index" class="btn btn-outline-secondary">
+                        <i class="bi bi-x-lg me-1"></i>Cancel
+                    </a>
+                </div>
+            </form>
+        </div>
+    </div>
+    
+    <div class="col-lg-4">
+        <div class="lb-info-card">
+            <h6><i class="bi bi-lightbulb me-1"></i>Tips</h6>
+            <ul class="list-unstyled mb-0 small">
+                <li class="mb-2"><i class="bi bi-check-circle text-success me-1"></i> Select a service to see which documents are required.</li>
+                <li class="mb-2"><i class="bi bi-file-earmark-arrow-up text-primary me-1"></i> Upload all required documents to avoid delays.</li>
+                <li class="mb-2"><i class="bi bi-clock-history text-warning me-1"></i> Processing times depend on the service type.</li>
+                <li class="mb-2"><i class="bi bi-bell text-info me-1"></i> You'll receive notifications for every status change.</li>
+                <li><i class="bi bi-save text-muted me-1"></i> Save as Draft to complete the form later.</li>
+            </ul>
+        </div>
+
+        <div class="lb-info-card mt-3" id="statusInfo" style="display:none;">
+            <h6><i class="bi bi-info-circle me-1"></i>Request Status</h6>
+            <p class="mb-0 small">
+                <strong>Draft:</strong> You can edit and upload more documents before submitting.<br/>
+                <strong>Submitted:</strong> Your request has been sent for review and cannot be edited. New documents can still be added.
+            </p>
+        </div>
+    </div>
+</div>
+
+@section Scripts {
+    <partial name="_ValidationScriptsPartial" />
+    <script>
+        const maxSizeMB = @maxSizeMB;
+        const allowedExtensions = '@allowedExtensionsAccept'.split(',').map(e => e.trim().toLowerCase());
+        let selectedFiles = [];
+
+        // Initialize drag and drop
+        const dropZone = document.getElementById('dropZone');
+        const fileInput = document.getElementById('fileInput');
+        const fileList = document.getElementById('fileList');
+        const filePreviewList = document.getElementById('filePreviewList');
+
+        // Click to select files
+        dropZone.addEventListener('click', () => fileInput.click());
+
+        // Drag and drop handlers
+        dropZone.addEventListener('dragover', (e) => {
+            e.preventDefault();
+            dropZone.style.borderColor = 'var(--lb-primary)';
+            dropZone.style.backgroundColor = 'rgba(0, 123, 255, 0.05)';
+        });
+
+        // Client-side search for services
+        (function(){
+            var searchInput = document.getElementById('serviceSearchCitizen');
+            var select = document.getElementById('GovernmentServiceId');
+            if(!searchInput || !select) return;
+
+            // Cache original options
+            var originalOptions = Array.from(select.options).map(function(opt){ return { value: opt.value, text: opt.text }; });
+
+            searchInput.addEventListener('input', function(e){
+                var q = (e.target.value || '').trim().toLowerCase();
+                // rebuild options
+                select.innerHTML = '';
+                // placeholder
+                var placeholder = document.createElement('option');
+                placeholder.value = '';
+                placeholder.text = '-- Select a Service --';
+                select.appendChild(placeholder);
+
+                originalOptions.forEach(function(o){
+                    if(!o.value) return; // skip placeholder stored
+                    if(q === '' || o.text.toLowerCase().indexOf(q) !== -1){
+                        var opt = document.createElement('option');
+                        opt.value = o.value;
+                        opt.text = o.text;
+                        select.appendChild(opt);
+                    }
+                });
+            });
+        })();
+
+        dropZone.addEventListener('dragleave', () => {
+            dropZone.style.borderColor = '#dee2e6';
+            dropZone.style.backgroundColor = '#f8f9fa';
+        });
+
+        dropZone.addEventListener('drop', (e) => {
+            e.preventDefault();
+            dropZone.style.borderColor = '#dee2e6';
+            dropZone.style.backgroundColor = '#f8f9fa';
+            const files = Array.from(e.dataTransfer.files);
+            handleFiles(files);
+        });
+
+        // File input change
+        fileInput.addEventListener('change', (e) => {
+            const files = Array.from(e.target.files);
+            handleFiles(files);
+        });
+
+        function handleFiles(files) {
+            selectedFiles = [];
+            filePreviewList.innerHTML = '';
+            
+            let hasErrors = false;
+            const errors = [];
+
+            files.forEach((file, index) => {
+                // Validate file size
+                if (file.size > maxSizeMB * 1024 * 1024) {
+                    errors.push(`${file.name} exceeds maximum size of ${maxSizeMB}MB`);
+                    hasErrors = true;
+                    return;
+                }
+
+                // Validate file type
+                const extension = '.' + file.name.split('.').pop().toLowerCase();
+                if (allowedExtensions.length > 0 && !allowedExtensions.includes(extension)) {
+                    errors.push(`${file.name} has unsupported file type`);
+                    hasErrors = true;
+                    return;
+                }
+
+                selectedFiles.push(file);
+
+                // Add preview
+                const li = document.createElement('li');
+                li.className = 'list-group-item d-flex justify-content-between align-items-center';
+                li.innerHTML = `
+                    <div>
+                        <i class="bi bi-file me-2"></i>
+                        <span>${file.name}</span>
+                        <small class="text-muted ms-2">(${formatFileSize(file.size)})</small>
+                    </div>
+                    <button type="button" class="btn btn-sm btn-link text-danger" onclick="removeFile(${selectedFiles.length - 1})">
+                        <i class="bi bi-trash"></i>
+                    </button>
+                `;
+                filePreviewList.appendChild(li);
+            });
+
+            // Show/hide file list
+            if (selectedFiles.length > 0) {
+                fileList.style.display = 'block';
+            } else {
+                fileList.style.display = 'none';
+            }
+
+            // Display validation errors
+            if (errors.length > 0) {
+                errors.forEach(error => {
+                    showValidationError(error);
+                });
+            }
+
+            // Update the actual file input
+            const dataTransfer = new DataTransfer();
+            selectedFiles.forEach(file => dataTransfer.items.add(file));
+            fileInput.files = dataTransfer.files;
+        }
+
+        function removeFile(index) {
+            selectedFiles.splice(index, 1);
+            handleFiles(selectedFiles);
+        }
+
+        function formatFileSize(bytes) {
+            if (bytes === 0) return '0 Bytes';
+            const k = 1024;
+            const sizes = ['Bytes', 'KB', 'MB'];
+            const i = Math.floor(Math.log(bytes) / Math.log(k));
+            return Math.round(bytes / Math.pow(k, i) * 100) / 100 + ' ' + sizes[i];
+        }
+
+        function showValidationError(message) {
+            const alert = document.querySelector('.alert-danger');
+            if (alert) {
+                const p = document.createElement('div');
+                p.textContent = message;
+                alert.appendChild(p);
+            }
+        }
+
+        // Load service requirements
+        document.getElementById('GovernmentServiceId').addEventListener('change', function () {
+            var serviceId = this.value;
+            var section = document.getElementById('requirements-section');
+            var list = document.getElementById('requirements-list');
+            var statusInfo = document.getElementById('statusInfo');
+            list.innerHTML = '';
+
+            if (!serviceId) {
+                section.style.display = 'none';
+                statusInfo.style.display = 'none';
+                return;
+            }
+
+            fetch('@Url.Action("GetRequiredDocuments", "ServiceRequest")?serviceId=' + serviceId)
+                .then(function (response) {
+                    if (!response.ok) throw new Error('Failed to load requirements');
+                    return response.json();
+                })
+                .then(function (data) {
+                    if (data.length === 0) {
+                        list.innerHTML = '<li class="list-group-item text-muted">No specific documents required for this service.</li>';
+                    } else {
+                        data.forEach(function (doc) {
+                            var li = document.createElement('li');
+                            li.className = 'list-group-item d-flex justify-content-between align-items-start';
+
+                            var badge = doc.isMandatory
+                                ? '<span class="badge lb-rejected">Required</span>'
+                                : '<span class="badge lb-cancelled">Optional</span>';
+                            li.innerHTML = '<div><strong>' + doc.documentName + '</strong>'
+                                + (doc.description ? '<br/><small class="text-muted">' + doc.description + '</small>' : '')
+                                + '</div>' + badge;
+                            list.appendChild(li);
+                        });
+                    }
+                    section.style.display = 'block';
+                    statusInfo.style.display = 'block';
+                })
+                .catch(function (error) {
+                    console.error('Error loading requirements:', error);
+                    section.style.display = 'none';
+                    statusInfo.style.display = 'none';
+                });
+        });
+
+        // Form validation
+        document.getElementById('serviceRequestForm').addEventListener('submit', function (e) {
+            if (document.getElementById('GovernmentServiceId').value === '') {
+                e.preventDefault();
+                alert('Please select a service');
+                return false;
+            }
+        });
+
+        // Autosave draft via AJAX every 15s when form is dirty
+        (function(){
+            var form = document.getElementById('serviceRequestForm');
+            if (!form) return;
+            var saveUrl = '@Url.Action("SaveDraftAjax", "ServiceRequest")';
+            var autosaveInterval = 15000; // ms
+            var dirty = false;
+
+            // mark dirty on changes
+            ['change','input'].forEach(function(evt){
+                form.addEventListener(evt, function(e){
+                    dirty = true;
+                }, true);
+            });
+
+            // include file input changes
+            var fileInputEl = document.getElementById('fileInput');
+            if (fileInputEl) fileInputEl.addEventListener('change', function(){ dirty = true; });
+
+            async function sendDraft() {
+                if (!dirty) return;
+                try {
+                    var tokenInput = form.querySelector('input[name="__RequestVerificationToken"]');
+                    var token = tokenInput ? tokenInput.value : '';
+
+                    var fd = new FormData();
+                    // include id
+                    var idEl = document.getElementById('ServiceRequestId');
+                    if (idEl && idEl.value) fd.append('Id', idEl.value);
+                    // government service
+                    fd.append('GovernmentServiceId', document.getElementById('GovernmentServiceId').value || '');
+                    // notes
+                    var notesEl = document.querySelector('textarea[name="Notes"]');
+                    if (notesEl) fd.append('Notes', notesEl.value);
+                    // append files
+                    if (fileInputEl && fileInputEl.files.length > 0) {
+                        for (var i=0;i<fileInputEl.files.length;i++) fd.append('documents', fileInputEl.files[i]);
+                    }
+
+                    var res = await fetch(saveUrl, {
+                        method: 'POST',
+                        headers: token ? { 'X-CSRF-TOKEN': token } : {},
+                        body: fd
+                    });
+
+                    if (!res.ok) {
+                        console.warn('Autosave failed');
+                        return;
+                    }
+
+                    var json = await res.json();
+                    if (json && json.success) {
+                        // update hidden id if provided
+                        if (json.id) {
+                            var idInput = document.getElementById('ServiceRequestId');
+                            if (idInput) idInput.value = json.id;
+                        }
+                        dirty = false;
+                    }
+                }
+                catch (e) {
+                    console.warn('Autosave error', e);
+                }
+            }
+
+            // initial timer
+            setInterval(sendDraft, autosaveInterval);
+        })();
+    </script>
+}

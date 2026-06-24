@@ -1,0 +1,10 @@
+@model int
+
+<a class="nav-link position-relative" asp-controller="Notification" asp-action="Index" id="notificationBadgeLink">
+    <i class="bi bi-bell me-1"></i>
+    Notifications
+    <span id="notification-unread-count" class="position-absolute top-0 start-100 translate-middle badge rounded-pill bg-danger" style="font-size:.65rem; display:@(Model > 0 ? "inline-block" : "none")">
+        @Model
+        <span class="visually-hidden">unread notifications</span>
+    </span>
+</a>

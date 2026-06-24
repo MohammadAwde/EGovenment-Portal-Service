@@ -1,0 +1,73 @@
+@{
+    ViewData["Title"] = "Pay Service Fee";
+    var request = ViewBag.ServiceRequest as ServiceRequestDto;
+    var fee = (decimal)(ViewBag.Fee ?? 0m);
+    var serviceName = ViewBag.ServiceName as string ?? "";
+}
+
+<div class="lb-page-header">
+    <h2><i class="bi bi-wallet2 me-2"></i>Pay Service Fee</h2>
+    <p>Complete your payment to proceed with the service request.</p>
+</div>
+
+<div class="row justify-content-center">
+    <div class="col-md-6">
+        <div class="lb-form-card mb-4">
+            <h6 class="text-uppercase fw-bold mb-3" style="color:var(--lb-green-dark);letter-spacing:.04em;">
+                <i class="bi bi-receipt me-1"></i>Order Summary
+            </h6>
+            <dl class="lb-detail-grid row mb-0">
+                <dt class="col-sm-5">Service</dt>
+                <dd class="col-sm-7">@serviceName</dd>
+
+                <dt class="col-sm-5">Request Reference</dt>
+                <dd class="col-sm-7"><code>@request?.ReferenceNumber</code></dd>
+
+                <dt class="col-sm-5">Fee Amount</dt>
+                <dd class="col-sm-7"><strong style="color:var(--lb-green);font-size:1.1rem;">@fee.ToString("N0") LBP</strong></dd>
+            </dl>
+        </div>
+
+        <div class="lb-form-card">
+            <h6 class="text-uppercase fw-bold mb-3" style="color:var(--lb-green-dark);letter-spacing:.04em;">
+                <i class="bi bi-credit-card me-1"></i>Select Payment Method
+            </h6>
+            <form asp-action="Pay" method="post">
+                <input type="hidden" name="serviceRequestId" value="@request?.Id" />
+
+                <div class="list-group mb-3">
+                    <label class="list-group-item d-flex align-items-center gap-3" style="border-color:var(--lb-border);transition:all var(--lb-transition);">
+                        <input type="radio" name="method" value="CreditCard" class="form-check-input" checked />
+                        <div>
+                            <strong>Credit Card</strong>
+                            <div class="text-muted small">Visa, MasterCard, American Express</div>
+                        </div>
+                    </label>
+                    <label class="list-group-item d-flex align-items-center gap-3" style="border-color:var(--lb-border);transition:all var(--lb-transition);">
+                        <input type="radio" name="method" value="DebitCard" class="form-check-input" />
+                        <div>
+                            <strong>Debit Card</strong>
+                            <div class="text-muted small">Pay directly from your bank account</div>
+                        </div>
+                    </label>
+                    <label class="list-group-item d-flex align-items-center gap-3" style="border-color:var(--lb-border);transition:all var(--lb-transition);">
+                        <input type="radio" name="method" value="PayPal" class="form-check-input" />
+                        <div>
+                            <strong>PayPal</strong>
+                            <div class="text-muted small">Pay using your PayPal account</div>
+                        </div>
+                    </label>
+                </div>
+
+                <button type="submit" class="btn btn-lb-primary w-100">
+                    <i class="bi bi-lock me-1"></i>Proceed to Payment
+                </button>
+            </form>
+
+            <a asp-controller="ServiceRequest" asp-action="Details" asp-route-id="@request?.Id"
+               class="btn btn-outline-secondary w-100 mt-2">
+                <i class="bi bi-x-lg me-1"></i>Cancel
+            </a>
+        </div>
+    </div>
+</div>

@@ -1,0 +1,70 @@
+@model List<ApplicationUser>
+@{
+    ViewData["Title"] = "Manage Users";
+    var userRoles = ViewBag.UserRoles as Dictionary<string, string> ?? new Dictionary<string, string>();
+    var roleBadgeClass = new Dictionary<string, string>
+    {
+        { "Admin", "lb-rejected" },
+        { "Officer", "lb-submitted" },
+        { "Citizen", "lb-review" },
+        { "None", "lb-cancelled" }
+    };
+}
+
+<div class="lb-page-header">
+    <h2><i class="bi bi-people me-2"></i>Manage Users</h2>
+    <p>View all registered users and assign roles.</p>
+</div>
+
+<div class="card">
+    <div class="card-body p-0">
+        <div class="table-responsive">
+            <table class="table table-hover mb-0">
+                <thead>
+                    <tr>
+                        <th>Email</th>
+                        <th>Full Name</th>
+                        <th>Current Role</th>
+                        <th>Active</th>
+                        <th>Assign Role</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    @foreach (var user in Model)
+                    {
+                        var currentRole = userRoles.GetValueOrDefault(user.Id, "None");
+                        var badgeClass = roleBadgeClass.GetValueOrDefault(currentRole, "lb-cancelled");
+                        <tr>
+                            <td><i class="bi bi-envelope me-1 text-muted"></i>@user.Email</td>
+                            <td>@user.FullName</td>
+                            <td><span class="badge @badgeClass">@currentRole</span></td>
+                            <td>
+                                @if (user.IsActive)
+                                {
+                                    <span class="badge lb-approved">Active</span>
+                                }
+                                else
+                                {
+                                    <span class="badge lb-cancelled">Inactive</span>
+                                }
+                            </td>
+                            <td>
+                                <form asp-action="AssignRole" method="post" class="d-flex gap-2">
+                                    <input type="hidden" name="userId" value="@user.Id" />
+                                    <select name="role" class="form-select form-select-sm" style="width: auto;">
+                                        <option value="Citizen" selected="@(currentRole == "Citizen")">Citizen</option>
+                                        <option value="Officer" selected="@(currentRole == "Officer")">Officer</option>
+                                        <option value="Admin" selected="@(currentRole == "Admin")">Admin</option>
+                                    </select>
+                                    <button type="submit" class="btn btn-sm btn-lb-primary">
+                                        <i class="bi bi-check-lg me-1"></i>Assign
+                                    </button>
+                                </form>
+                            </td>
+                        </tr>
+                    }
+                </tbody>
+            </table>
+        </div>
+    </div>
+</div>

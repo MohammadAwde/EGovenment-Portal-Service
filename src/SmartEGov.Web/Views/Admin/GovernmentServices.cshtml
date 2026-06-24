@@ -1,0 +1,74 @@
+@model IEnumerable<SmartEGov.Domain.Entities.GovernmentService>
+@{
+    ViewData["Title"] = "Government Services";
+}
+
+<div class="lb-page-header d-flex justify-content-between align-items-center flex-wrap gap-2">
+    <div>
+        <h2><i class="bi bi-building me-2"></i>Government Services</h2>
+        <p>Manage available government services and their configurations.</p>
+    </div>
+    <div class="lb-page-actions">
+        <a asp-action="CreateService" class="btn btn-lb-gold">
+            <i class="bi bi-plus-circle me-1"></i>Add Service
+        </a>
+    </div>
+</div>
+
+@if (Model.Any())
+{
+    <div class="card">
+        <div class="card-body p-0">
+            <div class="table-responsive">
+                <table class="table table-hover mb-0">
+                    <thead>
+                        <tr>
+                            <th>Name</th>
+                            <th>Category</th>
+                            <th>Fee</th>
+                            <th>Est. Days</th>
+                            <th>Active</th>
+                            <th>Actions</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        @foreach (var service in Model)
+                        {
+                            <tr>
+                                <td><strong>@service.Name</strong></td>
+                                <td><span class="badge lb-submitted">@service.Category</span></td>
+                                <td>$@service.Fee.ToString("N2")</td>
+                                <td><i class="bi bi-calendar3 me-1 text-muted"></i>@service.EstimatedDays days</td>
+                                <td>
+                                    @if (service.IsActive)
+                                    {
+                                        <span class="badge lb-approved">Active</span>
+                                    }
+                                    else
+                                    {
+                                        <span class="badge lb-cancelled">Inactive</span>
+                                    }
+                                </td>
+                                <td>
+                                    <a asp-action="EditService" asp-route-id="@service.Id" class="btn btn-sm btn-lb-gold">
+                                        <i class="bi bi-pencil me-1"></i>Edit
+                                    </a>
+                                </td>
+                            </tr>
+                        }
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+}
+else
+{
+    <div class="lb-empty-state">
+        <i class="bi bi-building"></i>
+        <p>No government services configured yet.</p>
+        <a asp-action="CreateService" class="btn btn-lb-primary mt-3">
+            <i class="bi bi-plus-circle me-1"></i>Add First Service
+        </a>
+    </div>
+}

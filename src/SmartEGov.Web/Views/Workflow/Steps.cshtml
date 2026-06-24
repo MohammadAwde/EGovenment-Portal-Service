@@ -1,0 +1,186 @@
+@model IEnumerable<ApprovalStepDto>
+@{
+    ViewData["Title"] = "Workflow Steps";
+    var serviceRequestId = (int)ViewBag.ServiceRequestId;
+    var referenceNumber = ViewBag.ReferenceNumber as string ?? "";
+    var requestStatus = ViewBag.RequestStatus as string ?? "";
+    var currentStepId = ViewBag.CurrentStepId as int?;
+}
+
+<div class="lb-page-header d-flex justify-content-between align-items-center flex-wrap gap-2">
+    <div>
+        <h2><i class="bi bi-diagram-3 me-2"></i>Approval Workflow</h2>
+        <p>Request: <strong>@referenceNumber</strong> — Status: <span class="badge lb-submitted">@requestStatus</span></p>
+    </div>
+    <div class="lb-page-actions">
+        <a asp-controller="ServiceRequest" asp-action="Details" asp-route-id="@serviceRequestId"
+           class="btn btn-lb-outline">
+            <i class="bi bi-arrow-left me-1"></i>Back to Request
+        </a>
+    </div>
+</div>
+
+@* Show any TempData messages prominently and offer retry on concurrency errors *@
+@if (TempData["Error"] != null)
+{
+    var err = TempData["Error"] as string ?? "";
+    <div class="alert alert-danger mt-3">
+        <strong>Error:</strong> @err
+        @if (err.Contains("processed or locked by another officer") || err.Contains("already been processed"))
+        {
+            <div class="mt-2">
+                <button type="button" class="btn btn-outline-secondary btn-sm" onclick="location.reload();">Retry</button>
+            </div>
+        }
+    </div>
+}
+
+@if (TempData["Success"] != null)
+{
+    <div class="alert alert-success mt-3">@TempData["Success"]</div>
+}
+
+@if (!Model.Any())
+{
+    <div class="lb-empty-state">
+        <i class="bi bi-diagram-3"></i>
+        <p>No workflow steps have been created for this service request.</p>
+    </div>
+}
+else
+{
+    <div class="row">
+        <div class="col-md-8">
+            @foreach (var step in Model)
+            {
+                var isCurrentStep = step.Id == currentStepId;
+                var stepDotClass = step.Status switch
+                {
+                    ApprovalStatus.Approved => "approved",
+                    ApprovalStatus.Rejected => "rejected",
+                    _ => isCurrentStep ? "active" : ""
+                };
+                var stepBadge = step.Status switch
+                {
+                    ApprovalStatus.Pending => "lb-review",
+                    ApprovalStatus.Approved => "lb-approved",
+                    ApprovalStatus.Rejected => "lb-rejected",
+                    _ => "bg-secondary"
+                };
+
+                <div class="lb-timeline-step">
+                    <div class="lb-step-dot @stepDotClass">
+                        @if (step.Status == ApprovalStatus.Approved)
+                        {
+                            <i class="bi bi-check"></i>
+                        }
+                        else if (step.Status == ApprovalStatus.Rejected)
+                        {
+                            <i class="bi bi-x"></i>
+                        }
+                        else
+                        {
+                            <span>@step.StepOrder</span>
+                        }
+                    </div>
+                    <div class="lb-form-card @(isCurrentStep && step.Status == ApprovalStatus.Pending ? "border-start border-primary border-3" : "")">
+                        <div class="d-flex justify-content-between align-items-center mb-2">
+                            <strong>Step @step.StepOrder: @step.StepName</strong>
+                            <span class="badge @stepBadge">@step.Status</span>
+                        </div>
+                        <div class="row">
+                            <div class="col-md-6">
+                                <dl class="lb-detail-grid row mb-0">
+                                    <dt class="col-sm-5">Officer</dt>
+                                    <dd class="col-sm-7">@(step.OfficerName ?? "—")</dd>
+
+                                    <dt class="col-sm-5">Action Date</dt>
+                                    <dd class="col-sm-7">@(step.ActionDate?.ToString("g") ?? "—")</dd>
+
+                                    @if (!string.IsNullOrEmpty(step.Comments))
+                                    {
+                                        <dt class="col-sm-5">Comments</dt>
+                                        <dd class="col-sm-7 fst-italic">@step.Comments</dd>
+                                    }
+
+                                    @if (!string.IsNullOrEmpty(step.OfficerSignaturePath))
+                                    {
+                                        <dt class="col-sm-5">Signature</dt>
+                                        <dd class="col-sm-7">
+                                            <img src="@step.OfficerSignaturePath" alt="Officer Signature"
+                                                 class="border rounded bg-white p-1" style="max-height: 60px; max-width: 180px;" />
+                                        </dd>
+                                    }
+                                </dl>
+                            </div>
+
+                            @if (isCurrentStep && step.Status == ApprovalStatus.Pending)
+                            {
+                                <div class="col-md-6">
+                                    <div class="lb-info-card">
+                                        <h6><i class="bi bi-lightning me-1"></i>Take Action</h6>
+                                        <div class="mb-2">
+                                            <form asp-action="Approve" method="post">
+                                                <input type="hidden" name="stepId" value="@step.Id" />
+                                                <input type="hidden" name="serviceRequestId" value="@serviceRequestId" />
+                                                <div class="input-group input-group-sm mb-2">
+                                                    <input type="text" name="comments" class="form-control" placeholder="Comments (optional)" />
+                                                </div>
+                                                <button type="submit" class="btn btn-lb-primary btn-sm w-100">
+                                                    <i class="bi bi-check-lg me-1"></i>Approve
+                                                </button>
+                                            </form>
+                                        </div>
+                                        <div>
+                                            <form asp-action="Reject" method="post">
+                                                <input type="hidden" name="stepId" value="@step.Id" />
+                                                <input type="hidden" name="serviceRequestId" value="@serviceRequestId" />
+                                                <input type="hidden" name="comments" value="" />
+                                                <button type="submit" class="btn btn-outline-danger btn-sm w-100"
+                                                        onclick="var c = prompt('Reason for rejection (optional):'); if(c !== null) { this.form.comments.value = c; return true; } return false;">
+                                                    <i class="bi bi-x-lg me-1"></i>Reject
+                                                </button>
+                                            </form>
+                                        </div>
+                                    </div>
+                                </div>
+                            }
+                        </div>
+                    </div>
+                </div>
+            }
+        </div>
+
+        <div class="col-md-4">
+            <div class="lb-form-card">
+                <h6 class="text-uppercase fw-bold mb-3" style="color:var(--lb-green-dark);letter-spacing:.04em;">
+                    <i class="bi bi-pie-chart me-1"></i>Progress
+                </h6>
+                @{
+                    var total = Model.Count();
+                    var completed = Model.Count(s => s.Status == ApprovalStatus.Approved);
+                    var rejected = Model.Count(s => s.Status == ApprovalStatus.Rejected);
+                    var pending = Model.Count(s => s.Status == ApprovalStatus.Pending);
+                    var progressPercent = total > 0 ? (int)((completed / (double)total) * 100) : 0;
+                    var progressClass = rejected > 0 ? "bg-danger" : (completed == total ? "bg-success" : "");
+                    var progressStyle = rejected > 0 ? "" : (completed == total ? "" : "background:var(--lb-green);");
+                }
+
+                <div class="progress mb-3" style="height: 24px;">
+                    <div class="progress-bar @progressClass" style="width: @(progressPercent)%;@progressStyle">
+                        @completed / @total
+                    </div>
+                </div>
+
+                <ul class="list-unstyled mb-0">
+                    <li class="mb-2"><span class="badge lb-approved me-1">@completed</span> Approved</li>
+                    <li class="mb-2"><span class="badge lb-review me-1">@pending</span> Pending</li>
+                    @if (rejected > 0)
+                    {
+                        <li><span class="badge lb-rejected me-1">@rejected</span> Rejected</li>
+                    }
+                </ul>
+            </div>
+        </div>
+    </div>
+}

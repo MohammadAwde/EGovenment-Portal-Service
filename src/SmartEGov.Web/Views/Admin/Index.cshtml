@@ -1,0 +1,175 @@
+@model AdminDashboardDto
+@{
+    ViewData["Title"] = "Admin Dashboard";
+}
+
+<div class="d-flex justify-content-between align-items-center mb-1">
+    <h2 class="mb-0" style="color:var(--lb-green-dark);"><i class="bi bi-shield-lock me-2"></i>Admin Dashboard</h2>
+</div>
+<hr />
+
+<div class="row g-3 mb-4">
+    <div class="col-6 col-md-3">
+        <div class="lb-stat-card green">
+            <div class="card-body py-3">
+                <div class="stat-number" data-counter="@Model.TotalUsers">0</div>
+                <div class="stat-label">Total Users</div>
+                <div class="mt-1 small" style="opacity:.7;">
+                    A:@Model.TotalAdmins &middot; O:@Model.TotalOfficers &middot; C:@Model.TotalCitizens
+                </div>
+            </div>
+            <div class="card-footer bg-transparent border-0 py-1">
+                <a asp-action="Users" class="text-white text-decoration-none small">Manage Users <i class="bi bi-arrow-right"></i></a>
+            </div>
+        </div>
+    </div>
+    <div class="col-6 col-md-3">
+        <div class="lb-stat-card gold">
+            <div class="card-body py-3">
+                <div class="stat-number" data-counter="@Model.TotalGovernmentServices">0</div>
+                <div class="stat-label">Gov. Services</div>
+                <div class="mt-1 small" style="opacity:.7;">
+                    Active: @Model.ActiveGovernmentServices
+                </div>
+            </div>
+            <div class="card-footer bg-transparent border-0 py-1">
+                <a asp-action="GovernmentServices" class="text-white text-decoration-none small">Manage <i class="bi bi-arrow-right"></i></a>
+            </div>
+        </div>
+    </div>
+    <div class="col-6 col-md-3">
+        <div class="lb-stat-card red">
+            <div class="card-body py-3">
+                <div class="stat-number" data-counter="@Model.TotalServiceRequests">0</div>
+                <div class="stat-label">Requests</div>
+                <div class="mt-1 small" style="opacity:.7;">
+                    Pending: @(Model.SubmittedRequests + Model.UnderReviewRequests)
+                </div>
+            </div>
+            <div class="card-footer bg-transparent border-0 py-1">
+                <a asp-controller="ServiceRequest" asp-action="Index" class="text-white text-decoration-none small">View All <i class="bi bi-arrow-right"></i></a>
+            </div>
+        </div>
+    </div>
+    <div class="col-6 col-md-3">
+        <div class="lb-stat-card dark">
+            <div class="card-body py-3">
+                <div class="stat-number" data-counter="@Model.RecentAuditLogs.Count()">0</div>
+                <div class="stat-label">Audit Logs</div>
+                <div class="mt-1 small" style="opacity:.7;">Recent entries</div>
+            </div>
+            <div class="card-footer bg-transparent border-0 py-1">
+                <a asp-action="AuditLogs" class="text-white text-decoration-none small">View Logs <i class="bi bi-arrow-right"></i></a>
+            </div>
+        </div>
+    </div>
+</div>
+
+<div class="row mb-4">
+    <div class="col-12">
+        <div class="card">
+            <div class="card-header"><strong><i class="bi bi-bar-chart me-1"></i>Request Status Breakdown</strong></div>
+            <div class="card-body">
+                <div class="row text-center">
+                    <div class="col"><span class="badge lb-submitted fs-6 d-block mb-1">@Model.SubmittedRequests</span><small class="text-muted">Submitted</small></div>
+                    <div class="col"><span class="badge lb-review fs-6 d-block mb-1">@Model.UnderReviewRequests</span><small class="text-muted">Under Review</small></div>
+                    <div class="col"><span class="badge lb-approved fs-6 d-block mb-1">@Model.ApprovedRequests</span><small class="text-muted">Approved</small></div>
+                    <div class="col"><span class="badge lb-rejected fs-6 d-block mb-1">@Model.RejectedRequests</span><small class="text-muted">Rejected</small></div>
+                    <div class="col"><span class="badge lb-completed fs-6 d-block mb-1">@Model.CompletedRequests</span><small class="text-muted">Completed</small></div>
+                    <div class="col"><span class="badge lb-cancelled fs-6 d-block mb-1">@Model.CancelledRequests</span><small class="text-muted">Cancelled</small></div>
+                </div>
+                @if (Model.TotalServiceRequests > 0)
+                {
+                    <div class="progress mt-3" style="height: 20px;">
+                        @{ double total = Model.TotalServiceRequests; }
+                        <div class="progress-bar" style="width:@((Model.SubmittedRequests/total*100).ToString("F1"))%;background:#0984e3;"></div>
+                        <div class="progress-bar" style="width:@((Model.UnderReviewRequests/total*100).ToString("F1"))%;background:#fdcb6e;"></div>
+                        <div class="progress-bar" style="width:@((Model.ApprovedRequests/total*100).ToString("F1"))%;background:var(--lb-green);"></div>
+                        <div class="progress-bar" style="width:@((Model.RejectedRequests/total*100).ToString("F1"))%;background:var(--lb-red);"></div>
+                        <div class="progress-bar" style="width:@((Model.CompletedRequests/total*100).ToString("F1"))%;background:#6c5ce7;"></div>
+                        <div class="progress-bar" style="width:@((Model.CancelledRequests/total*100).ToString("F1"))%;background:#636e72;"></div>
+                    </div>
+                }
+            </div>
+        </div>
+    </div>
+</div>
+
+<div class="row">
+    <div class="col-md-7">
+        <div class="card mb-3">
+            <div class="card-header d-flex justify-content-between align-items-center">
+                <strong><i class="bi bi-file-earmark-text me-1"></i>Recent Service Requests</strong>
+                <a asp-controller="ServiceRequest" asp-action="Index" class="btn btn-sm btn-lb-primary">View All</a>
+            </div>
+            <div class="card-body p-0">
+                <div class="table-responsive">
+                    <table class="table table-sm table-hover mb-0">
+                        <thead>
+                            <tr>
+                                <th>Reference</th>
+                                <th>Service</th>
+                                <th>Citizen</th>
+                                <th>Status</th>
+                                <th>Date</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            @foreach (var req in Model.RecentRequests)
+                            {
+                                var badge = req.Status switch
+                                {
+                                    ServiceRequestStatus.Submitted => "lb-submitted",
+                                    ServiceRequestStatus.UnderReview => "lb-review",
+                                    ServiceRequestStatus.Approved => "lb-approved",
+                                    ServiceRequestStatus.Rejected => "lb-rejected",
+                                    ServiceRequestStatus.Completed => "lb-completed",
+                                    _ => "lb-cancelled"
+                                };
+                                <tr>
+                                    <td>
+                                        <a asp-controller="ServiceRequest" asp-action="Details" asp-route-id="@req.Id">
+                                            @req.ReferenceNumber
+                                        </a>
+                                    </td>
+                                    <td>@req.GovernmentServiceName</td>
+                                    <td>@req.CitizenName</td>
+                                    <td><span class="badge @badge">@req.Status</span></td>
+                                    <td>@(req.SubmittedAt?.ToString("MMM dd") ?? "-")</td>
+                                </tr>
+                            }
+                            @if (!Model.RecentRequests.Any())
+                            {
+                                <tr><td colspan="5" class="text-muted text-center py-3">No requests yet.</td></tr>
+                            }
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+    </div>
+    <div class="col-md-5">
+        <div class="card mb-3">
+            <div class="card-header d-flex justify-content-between align-items-center">
+                <strong><i class="bi bi-journal-text me-1"></i>Recent Audit Logs</strong>
+                <a asp-action="AuditLogs" class="btn btn-sm btn-lb-primary">View All</a>
+            </div>
+            <div class="card-body p-0">
+                <ul class="list-group list-group-flush">
+                    @foreach (var log in Model.RecentAuditLogs)
+                    {
+                        <li class="list-group-item small">
+                            <strong>@log.Action</strong> on <em>@log.EntityName</em>
+                            <br />
+                            <span class="text-muted">@(log.UserName ?? "System") &middot; @log.Timestamp.ToString("MMM dd, HH:mm")</span>
+                        </li>
+                    }
+                    @if (!Model.RecentAuditLogs.Any())
+                    {
+                        <li class="list-group-item text-muted text-center py-3">No activity recorded.</li>
+                    }
+                </ul>
+            </div>
+        </div>
+    </div>
+</div>

@@ -1,0 +1,175 @@
+@model CitizenDashboardDto
+@{
+    ViewData["Title"] = "My Dashboard";
+}
+
+<div class="lb-page-header d-flex justify-content-between align-items-center flex-wrap gap-2">
+    <div>
+        <h2><i class="bi bi-speedometer2 me-2"></i>Welcome, @Model.CitizenName</h2>
+        <p>Your service request overview at a glance.</p>
+    </div>
+    <div class="lb-page-actions">
+        <a asp-controller="ServiceRequest" asp-action="Create" class="btn btn-lb-gold">
+            <i class="bi bi-plus-circle me-1"></i> New Request
+        </a>
+    </div>
+</div>
+
+<div class="row g-3 mb-4">
+    <div class="col-6 col-md-3">
+        <div class="lb-stat-card green">
+            <div class="card-body text-center py-3">
+                <div class="stat-number" data-counter="@Model.TotalRequests">0</div>
+                <div class="stat-label">Total Requests</div>
+            </div>
+        </div>
+    </div>
+    <div class="col-6 col-md-3">
+        <div class="lb-stat-card gold">
+            <div class="card-body text-center py-3">
+                <div class="stat-number" data-counter="@(Model.SubmittedRequests + Model.UnderReviewRequests)">0</div>
+                <div class="stat-label">In Progress</div>
+            </div>
+        </div>
+    </div>
+    <div class="col-6 col-md-3">
+        <div class="lb-stat-card dark">
+            <div class="card-body text-center py-3">
+                <div class="stat-number" data-counter="@Model.CompletedRequests">0</div>
+                <div class="stat-label">Completed</div>
+            </div>
+        </div>
+    </div>
+    <div class="col-6 col-md-3">
+        <div class="lb-stat-card red">
+            <div class="card-body text-center py-3">
+                <div class="stat-number" data-counter="@Model.UnreadNotifications">0</div>
+                <div class="stat-label">Unread Alerts</div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<div class="row mb-4">
+    <div class="col-12">
+        <div class="card">
+            <div class="card-header"><strong>Request Status Breakdown</strong></div>
+            <div class="card-body">
+                <div class="row text-center">
+                    <div class="col"><span class="badge lb-submitted fs-6 d-block mb-1">@Model.SubmittedRequests</span><small class="text-muted">Submitted</small></div>
+                    <div class="col"><span class="badge lb-review fs-6 d-block mb-1">@Model.UnderReviewRequests</span><small class="text-muted">Under Review</small></div>
+                    <div class="col"><span class="badge lb-approved fs-6 d-block mb-1">@Model.ApprovedRequests</span><small class="text-muted">Approved</small></div>
+                    <div class="col"><span class="badge lb-rejected fs-6 d-block mb-1">@Model.RejectedRequests</span><small class="text-muted">Rejected</small></div>
+                    <div class="col"><span class="badge lb-completed fs-6 d-block mb-1">@Model.CompletedRequests</span><small class="text-muted">Completed</small></div>
+                    <div class="col"><span class="badge lb-cancelled fs-6 d-block mb-1">@Model.CancelledRequests</span><small class="text-muted">Cancelled</small></div>
+                </div>
+                @if (Model.TotalRequests > 0)
+                {
+                    <div class="progress mt-3" style="height: 20px;">
+                        @{
+                            double total = Model.TotalRequests;
+                        }
+                        <div class="progress-bar bg-info" style="width: @((Model.SubmittedRequests / total * 100).ToString("F1"))%"></div>
+                        <div class="progress-bar bg-warning" style="width: @((Model.UnderReviewRequests / total * 100).ToString("F1"))%"></div>
+                        <div class="progress-bar bg-success" style="width: @((Model.ApprovedRequests / total * 100).ToString("F1"))%"></div>
+                        <div class="progress-bar bg-danger" style="width: @((Model.RejectedRequests / total * 100).ToString("F1"))%"></div>
+                        <div class="progress-bar bg-primary" style="width: @((Model.CompletedRequests / total * 100).ToString("F1"))%"></div>
+                        <div class="progress-bar bg-secondary" style="width: @((Model.CancelledRequests / total * 100).ToString("F1"))%"></div>
+                    </div>
+                }
+            </div>
+        </div>
+    </div>
+</div>
+
+<div class="row">
+    <div class="col-md-7">
+        <div class="card mb-3">
+            <div class="card-header d-flex justify-content-between align-items-center">
+                <strong>Recent Requests</strong>
+                <a asp-controller="ServiceRequest" asp-action="Index" class="btn btn-sm btn-outline-primary">View All</a>
+            </div>
+            <div class="card-body p-0">
+                <div class="table-responsive">
+                    <table class="table table-sm mb-0">
+                        <thead class="table-light">
+                            <tr>
+                                <th>Reference</th>
+                                <th>Service</th>
+                                <th>Status</th>
+                                <th>Date</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            @foreach (var req in Model.RecentRequests)
+                            {
+                                var badge = req.Status switch
+                                {
+                                    ServiceRequestStatus.Submitted => "lb-submitted",
+                                    ServiceRequestStatus.UnderReview => "lb-review",
+                                    ServiceRequestStatus.Approved => "lb-approved",
+                                    ServiceRequestStatus.Rejected => "lb-rejected",
+                                    ServiceRequestStatus.Completed => "lb-completed",
+                                    _ => "lb-cancelled"
+                                };
+                                <tr>
+                                    <td>
+                                        <a asp-controller="ServiceRequest" asp-action="Details" asp-route-id="@req.Id">
+                                            @req.ReferenceNumber
+                                        </a>
+                                    </td>
+                                    <td>@req.GovernmentServiceName</td>
+                                    <td><span class="badge @badge">@req.Status</span></td>
+                                    <td>@(req.SubmittedAt?.ToString("MMM dd") ?? "-")</td>
+                                </tr>
+                            }
+                            @if (!Model.RecentRequests.Any())
+                            {
+                                <tr><td colspan="4" class="text-muted text-center py-3">No requests yet.</td></tr>
+                            }
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+    </div>
+    <div class="col-md-5">
+        <div class="card mb-3">
+            <div class="card-header d-flex justify-content-between align-items-center">
+                <strong>Recent Notifications</strong>
+                <a asp-controller="Notification" asp-action="Index" class="btn btn-sm btn-outline-secondary">View All</a>
+            </div>
+            <div class="card-body p-0">
+                <ul class="list-group list-group-flush">
+                    @foreach (var n in Model.RecentNotifications)
+                    {
+                        <li class="list-group-item small @(n.IsRead ? "" : "bg-light")">
+                            <strong>@n.Title</strong>
+                            <br />
+                            <span class="text-muted">@n.Message</span>
+                            <br />
+                            <span class="text-muted">@n.CreatedAt.ToString("MMM dd, HH:mm")</span>
+                            @if (!n.IsRead)
+                            {
+                                <span class="badge bg-info ms-1">New</span>
+                            }
+                        </li>
+                    }
+                    @if (!Model.RecentNotifications.Any())
+                    {
+                        <li class="list-group-item text-muted text-center py-3">No notifications.</li>
+                    }
+                </ul>
+            </div>
+        </div>
+
+        <div class="d-grid gap-2">
+            <a asp-controller="ServiceRequest" asp-action="Create" class="btn btn-lb-primary">
+                <i class="bi bi-plus-circle me-1"></i>Submit New Request
+            </a>
+            <a asp-controller="Citizen" asp-action="Index" class="btn btn-outline-secondary">
+                <i class="bi bi-person me-1"></i>View My Profile
+            </a>
+        </div>
+    </div>
+</div>

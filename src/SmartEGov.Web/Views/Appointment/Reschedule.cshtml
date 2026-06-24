@@ -1,0 +1,129 @@
+﻿@model SmartEGov.Application.DTOs.AppointmentDto
+@{
+    ViewData["Title"] = "Reschedule Appointment";
+}
+
+<div class="container py-4" style="max-width:650px">
+    <h2 class="mb-4"><i class="bi bi-calendar-event me-2"></i>Reschedule Appointment</h2>
+
+    <!-- Current appointment info -->
+    <div class="card shadow-sm mb-4 border-primary">
+        <div class="card-header bg-primary text-white fw-semibold">
+            <i class="bi bi-info-circle me-2"></i>Current Appointment
+        </div>
+        <div class="card-body">
+            <dl class="row mb-0">
+                <dt class="col-sm-4">Reference</dt>
+                <dd class="col-sm-8"><code>@Model.ReferenceNumber</code></dd>
+
+                <dt class="col-sm-4">Service Center</dt>
+                <dd class="col-sm-8">@Model.ServiceCenterName<small class="d-block text-muted">@Model.ServiceCenterAddress</small></dd>
+
+                <dt class="col-sm-4">Service</dt>
+                <dd class="col-sm-8">@Model.GovernmentServiceName</dd>
+
+                <dt class="col-sm-4">Current Date</dt>
+                <dd class="col-sm-8">@Model.AppointmentDate.ToString("dd MMM yyyy")</dd>
+
+                <dt class="col-sm-4">Current Slot</dt>
+                <dd class="col-sm-8"><span class="badge bg-secondary">@Model.TimeSlot</span></dd>
+            </dl>
+        </div>
+    </div>
+
+    <!-- Reschedule form -->
+    <div class="card shadow-sm">
+        <div class="card-header fw-semibold">
+            <i class="bi bi-calendar-plus me-2"></i>Choose New Date & Time
+        </div>
+        <div class="card-body">
+            <form asp-action="Reschedule" method="post">
+                @Html.AntiForgeryToken()
+                <input type="hidden" name="id" value="@Model.Id" />
+
+                @if (TempData["Error"] != null)
+                {
+                    <div class="alert alert-danger">@TempData["Error"]</div>
+                }
+
+                <div class="mb-3">
+                    <label class="form-label fw-semibold">New Date</label>
+                    <input type="date" name="newDate" class="form-control" id="newDate"
+                           min="@DateTime.Today.AddDays(1).ToString("yyyy-MM-dd")"
+                           required />
+                    <small class="text-muted">Appointments available Monday to Thursday only.</small>
+                </div>
+
+                <div class="mb-3">
+                    <label class="form-label fw-semibold">Available Slots</label>
+                    <div id="slotGrid" class="d-flex flex-wrap gap-2">
+                        <p class="text-muted small">Select a date to see available slots.</p>
+                    </div>
+                    <input type="hidden" name="newSlot" id="selectedSlot" required />
+                </div>
+
+                <div id="summary" class="alert alert-info d-none mb-3">
+                    <i class="bi bi-info-circle me-2"></i>
+                    <span id="summaryText"></span>
+                </div>
+
+                <div class="d-flex gap-2">
+                    <button type="submit" class="btn btn-success flex-grow-1" id="btnConfirm" disabled>
+                        <i class="bi bi-check-circle me-1"></i>Confirm Reschedule
+                    </button>
+                    <a asp-action="Index" class="btn btn-outline-secondary">Cancel</a>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+
+@section Scripts {
+    <script>
+        const centerId = @Model.ServiceCenterId;
+
+        document.getElementById('newDate').addEventListener('change', async function () {
+            const date = this.value;
+            const grid = document.getElementById('slotGrid');
+
+            const dayOfWeek = new Date(date).getDay();
+            if (dayOfWeek === 5 || dayOfWeek === 6) {
+                grid.innerHTML = '<p class="text-warning small">No appointments on Fridays and Saturdays.</p>';
+                document.getElementById('selectedSlot').value = '';
+                document.getElementById('btnConfirm').disabled = true;
+                return;
+            }
+
+            grid.innerHTML = '<span class="text-muted small"><div class="spinner-border spinner-border-sm me-1"></div>Loading slots…</span>';
+            document.getElementById('selectedSlot').value = '';
+            document.getElementById('btnConfirm').disabled = true;
+
+            const slots = await (await fetch(`/Appointment/GetSlots?centerId=${centerId}&date=${date}`)).json();
+            grid.innerHTML = '';
+
+            if (!slots.length) {
+                grid.innerHTML = '<p class="text-warning small">No slots available. Try another date.</p>';
+                return;
+            }
+
+            slots.forEach(slot => {
+                const btn = document.createElement('button');
+                btn.type = 'button';
+                btn.className = 'btn btn-outline-success btn-sm slot-btn';
+                btn.textContent = slot;
+                btn.addEventListener('click', () => pickSlot(slot, btn));
+                grid.appendChild(btn);
+            });
+        });
+
+        function pickSlot(slot, el) {
+            document.querySelectorAll('.slot-btn').forEach(b => b.classList.remove('active', 'btn-success'));
+            el.classList.add('active', 'btn-success');
+            document.getElementById('selectedSlot').value = slot;
+            const date = document.getElementById('newDate').value;
+            document.getElementById('summaryText').textContent = `New appointment: ${date} at ${slot}`;
+            document.getElementById('summary').classList.remove('d-none');
+            document.getElementById('btnConfirm').disabled = false;
+        }
+    </script>
+}
