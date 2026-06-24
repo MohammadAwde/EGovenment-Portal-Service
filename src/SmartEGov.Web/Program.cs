@@ -85,6 +85,17 @@ try
 {
     using (var scope = app.Services.CreateScope())
     {
+                // Ensure database schema is up-to-date by applying any pending migrations
+                try
+                {
+                    var dbForMigrations = scope.ServiceProvider.GetRequiredService<ApplicationDbContext>();
+                    await dbForMigrations.Database.MigrateAsync();
+                }
+                catch (Exception ex)
+                {
+                    var logger = scope.ServiceProvider.GetRequiredService<ILoggerFactory>().CreateLogger("Startup:Migrations");
+                    logger.LogWarning(ex, "Automatic database migration failed. Continue startup.");
+                }
                 // Ensure Stripe columns exist in Payments table when running in Development
                 try
                 {
