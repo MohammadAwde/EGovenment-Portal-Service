@@ -123,20 +123,72 @@ public class ServiceRequestController : Controller
             return View(model);
         }
 
-        model.Status = saveAsDraft ? Domain.Enums.ServiceRequestStatus.Draft : ServiceRequestStatus.Submitted;
+        var (maxSizeBytes, allowedExtensions) = GetFileUploadSettings();
 
-        // If submitting (not saving as draft), ensure there is at least one document either existing or uploaded now
+        // If submitting (not saving as draft), validate all mandatory requirements are met
         if (!saveAsDraft)
         {
-            var existingDocs = await _documentService.GetByServiceRequestIdAsync(model.Id);
-            var existingCount = existingDocs?.Count() ?? 0;
-            if ((documents == null || documents.Count == 0) && existingCount == 0)
+            // First validate uploaded files match required documents
+            var (isValidFileNames, fileNameError) = await ValidateUploadedFilesMatchRequirementsAsync(model.GovernmentServiceId, documents);
+            if (!isValidFileNames)
             {
-                ModelState.AddModelError("", "Please upload at least one supporting document before submitting the request.");
+                ModelState.AddModelError("", fileNameError ?? "File names do not match required documents.");
                 var services = await _unitOfWork.GovernmentServices.GetActiveServicesAsync();
                 ViewBag.Services = new SelectList(services, "Id", "Name", model.GovernmentServiceId);
                 PopulateFileUploadSettings();
                 return View(model);
+            }
+
+            // Validate all mandatory requirements are met
+            var (allRequirementsMet, missingDocs) = await ValidateAllMandatoryRequirementsMetAsync(
+                model.Id, 
+                model.GovernmentServiceId, 
+                documents);
+
+            if (!allRequirementsMet && missingDocs.Any())
+            {
+                var missingList = string.Join(", ", missingDocs.Select(d => $"• {d}"));
+                ModelState.AddModelError("", 
+                    $"Before submitting your request, please upload all required documents:\n{missingList}");
+                var services = await _unitOfWork.GovernmentServices.GetActiveServicesAsync();
+                ViewBag.Services = new SelectList(services, "Id", "Name", model.GovernmentServiceId);
+                PopulateFileUploadSettings();
+                return View(model);
+            }
+
+            model.Status = ServiceRequestStatus.Submitted;
+        }
+        else
+        {
+            // Saving as draft - validate file names only
+            var (isValidNames, fileError) = await ValidateUploadedFilesMatchRequirementsAsync(model.GovernmentServiceId, documents);
+            if (!isValidNames)
+            {
+                ModelState.AddModelError("", fileError ?? "File names do not match required documents.");
+                var services = await _unitOfWork.GovernmentServices.GetActiveServicesAsync();
+                ViewBag.Services = new SelectList(services, "Id", "Name", model.GovernmentServiceId);
+                PopulateFileUploadSettings();
+                return View(model);
+            }
+
+            model.Status = Domain.Enums.ServiceRequestStatus.Draft;
+        }
+
+        // Validate file properties (size, type)
+        if (documents != null && documents.Count > 0)
+        {
+            var allowedExtArray = allowedExtensions.Split(',', StringSplitOptions.RemoveEmptyEntries).Select(e => e.Trim().ToLowerInvariant()).ToArray();
+            foreach (var file in documents)
+            {
+                var (isValid, error) = _documentService.ValidateFile(file, maxSizeBytes, allowedExtArray);
+                if (!isValid)
+                {
+                    ModelState.AddModelError("", error!);
+                    var services = await _unitOfWork.GovernmentServices.GetActiveServicesAsync();
+                    ViewBag.Services = new SelectList(services, "Id", "Name", model.GovernmentServiceId);
+                    PopulateFileUploadSettings();
+                    return View(model);
+                }
             }
         }
 
@@ -159,7 +211,7 @@ public class ServiceRequestController : Controller
         if (saveAsDraft)
             TempData["Success"] = "Service request saved as draft.";
         else
-            TempData["Success"] = "Service request updated successfully.";
+            TempData["Success"] = "Service request submitted successfully.";
 
         return RedirectToAction("Details", new { id = updated.Id });
     }
@@ -340,24 +392,74 @@ public class ServiceRequestController : Controller
 
         var (maxSizeBytes, allowedExtensions) = GetFileUploadSettings();
 
-        // If user is submitting (not saving draft) require at least one uploaded file
+        // If user is submitting (not saving draft), validate all mandatory requirements are met
         if (!saveAsDraft)
         {
-            if (documents == null || documents.Count == 0)
+            // First validate uploaded files match required documents
+            var (isValidFileNames, fileNameError) = await ValidateUploadedFilesMatchRequirementsAsync(model.GovernmentServiceId, documents);
+            if (!isValidFileNames)
             {
-                ModelState.AddModelError("", "Please upload at least one supporting document before submitting the request.");
+                ModelState.AddModelError("", fileNameError ?? "File names do not match required documents.");
                 var services = await _unitOfWork.GovernmentServices.GetActiveServicesAsync();
                 ViewBag.Services = new SelectList(services, "Id", "Name");
                 PopulateFileUploadSettings();
                 return View(model);
             }
+
+            // Then validate all mandatory requirements are met
+            // Create the request first with Draft status temporarily to get an ID for validation
+            var tempModel = model;
+            tempModel.Status = ServiceRequestStatus.Draft;
+            var tempRequest = await _serviceRequestService.CreateAsync(tempModel);
+
+            // Now validate all mandatory requirements
+            var (allRequirementsMet, missingDocs) = await ValidateAllMandatoryRequirementsMetAsync(
+                tempRequest.Id, 
+                model.GovernmentServiceId, 
+                documents);
+
+            if (!allRequirementsMet && missingDocs.Any())
+            {
+                // Delete the temporary draft since submission will fail
+                await _serviceRequestService.DeleteAsync(tempRequest.Id);
+
+                var missingList = string.Join(", ", missingDocs.Select(d => $"• {d}"));
+                ModelState.AddModelError("", 
+                    $"Before submitting your request, please upload all required documents:\n{missingList}");
+                var services = await _unitOfWork.GovernmentServices.GetActiveServicesAsync();
+                ViewBag.Services = new SelectList(services, "Id", "Name");
+                PopulateFileUploadSettings();
+                return View(model);
+            }
+
+            // Update draft to Submitted status
+            tempModel.Id = tempRequest.Id;
+            tempModel.Status = ServiceRequestStatus.Submitted;
+            var created = await _serviceRequestService.UpdateAsync(tempModel);
+
+            if (documents != null && documents.Count > 0)
+            {
+                await _serviceRequestService.UploadDocumentsAsync(created.Id, documents);
+            }
+
+            await _auditLogService.LogAsync(
+                userId,
+                "ServiceRequestCreated",
+                "ServiceRequest",
+                created.Id.ToString(),
+                null,
+                $"Service request #{created.Id} created for service ID {model.GovernmentServiceId}"
+            );
+
+            TempData["Success"] = "Service request submitted successfully.";
+            return RedirectToAction("Details", new { id = created.Id });
         }
 
-        // Validate uploaded file names match required documents for the service
-        var (isValidFileNames, fileNameError) = await ValidateUploadedFilesMatchRequirementsAsync(model.GovernmentServiceId, documents);
-        if (!isValidFileNames)
+        // Saving as draft - validate file names but don't require all mandatory documents
+        var (isValidNames, fileError) = await ValidateUploadedFilesMatchRequirementsAsync(model.GovernmentServiceId, documents);
+        if (!isValidNames)
         {
-            ModelState.AddModelError("", fileNameError ?? "File names do not match required documents.");
+            ModelState.AddModelError("", fileError ?? "File names do not match required documents.");
             var services = await _unitOfWork.GovernmentServices.GetActiveServicesAsync();
             ViewBag.Services = new SelectList(services, "Id", "Name");
             PopulateFileUploadSettings();
@@ -383,62 +485,25 @@ public class ServiceRequestController : Controller
 
         _logger?.LogInformation("Create POST called. saveAsDraft={saveAsDraft}, CitizenId={CitizenId}, ServiceId={ServiceId}", saveAsDraft, model.CitizenId, model.GovernmentServiceId);
 
-        // If user chose to save as draft, use the draft path
-        if (saveAsDraft)
-        {
-            model.Status = Domain.Enums.ServiceRequestStatus.Draft;
-            var createdDraft = await _serviceRequestService.SaveDraftAsync(model);
-
-            if (documents != null && documents.Count > 0)
-            {
-                await _serviceRequestService.UploadDocumentsAsync(createdDraft.Id, documents);
-            }
-
-            await _auditLogService.LogAsync(
-                userId,
-                "ServiceRequestDraftSaved",
-                "ServiceRequest",
-                createdDraft.Id.ToString(),
-                null,
-                $"Service request draft #{createdDraft.Id} saved for service ID {model.GovernmentServiceId}"
-            );
-
-            TempData["Success"] = "Service request saved as draft.";
-            return RedirectToAction("Details", new { id = createdDraft.Id });
-        }
-
-        // Otherwise create/submission path
-        model.Status = ServiceRequestStatus.Submitted;
-        ServiceRequestDto created;
-        try
-        {
-            created = await _serviceRequestService.CreateAsync(model);
-        }
-        catch (InvalidOperationException ex)
-        {
-            ModelState.AddModelError(string.Empty, ex.Message);
-            var services = await _unitOfWork.GovernmentServices.GetActiveServicesAsync();
-            ViewBag.Services = new SelectList(services, "Id", "Name");
-            PopulateFileUploadSettings();
-            return View(model);
-        }
+        model.Status = Domain.Enums.ServiceRequestStatus.Draft;
+        var createdDraft = await _serviceRequestService.SaveDraftAsync(model);
 
         if (documents != null && documents.Count > 0)
         {
-            await _serviceRequestService.UploadDocumentsAsync(created.Id, documents);
+            await _serviceRequestService.UploadDocumentsAsync(createdDraft.Id, documents);
         }
 
         await _auditLogService.LogAsync(
             userId,
-            "ServiceRequestCreated",
+            "ServiceRequestDraftSaved",
             "ServiceRequest",
-            created.Id.ToString(),
+            createdDraft.Id.ToString(),
             null,
-            $"Service request #{created.Id} created for service ID {model.GovernmentServiceId}"
+            $"Service request draft #{createdDraft.Id} saved for service ID {model.GovernmentServiceId}"
         );
 
-        TempData["Success"] = "Service request submitted successfully.";
-        return RedirectToAction("Details", new { id = created.Id });
+        TempData["Success"] = "Service request saved as draft.";
+        return RedirectToAction("Details", new { id = createdDraft.Id });
     }
 
     [Authorize(Roles = "Citizen")]
@@ -868,5 +933,94 @@ public class ServiceRequestController : Controller
         }
 
         return (true, null);
+    }
+
+    /// <summary>
+    /// Validates that all mandatory required documents for a service are either already uploaded or being uploaded now.
+    /// </summary>
+    private async Task<(bool IsValid, List<string> MissingDocuments)> ValidateAllMandatoryRequirementsMetAsync(int serviceRequestId, int governmentServiceId, IEnumerable<IFormFile>? newFiles)
+    {
+        var govService = await _unitOfWork.GovernmentServices.GetWithDetailsAsync(governmentServiceId);
+        if (govService?.RequiredDocuments == null || !govService.RequiredDocuments.Any())
+        {
+            // No required documents, all good
+            return (true, new List<string>());
+        }
+
+        // Get mandatory required documents
+        var mandatoryDocs = govService.RequiredDocuments.Where(d => d.IsMandatory).ToList();
+        if (!mandatoryDocs.Any())
+        {
+            // No mandatory documents required
+            return (true, new List<string>());
+        }
+
+        // Get existing uploaded documents for this request
+        var existingDocs = await _documentService.GetByServiceRequestIdAsync(serviceRequestId);
+        var existingDocList = existingDocs?.ToList() ?? new List<DocumentDto>();
+
+        // Collect all document names (existing + new)
+        var allDocumentNames = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+
+        // Add existing documents
+        foreach (var existingDoc in existingDocList)
+        {
+            if (!string.IsNullOrEmpty(existingDoc.DocumentType))
+            {
+                allDocumentNames.Add(existingDoc.DocumentType);
+            }
+            if (!string.IsNullOrEmpty(existingDoc.FileName))
+            {
+                allDocumentNames.Add(existingDoc.FileName);
+            }
+        }
+
+        // Add newly uploaded files
+        if (newFiles != null)
+        {
+            foreach (var file in newFiles)
+            {
+                if (!string.IsNullOrEmpty(file.FileName))
+                {
+                    allDocumentNames.Add(file.FileName);
+                }
+            }
+        }
+
+        // Check each mandatory required document
+        var missingDocuments = new List<string>();
+        foreach (var mandatoryReq in mandatoryDocs)
+        {
+            var reqName = mandatoryReq.DocumentName?.ToLowerInvariant() ?? string.Empty;
+            var reqTokens = System.Text.RegularExpressions.Regex.Replace(reqName, "\\W+", " ")
+                .Split(' ', System.StringSplitOptions.RemoveEmptyEntries)
+                .Where(t => t.Length > 1)
+                .ToArray();
+
+            // Check if any token from the requirement name appears in uploaded documents
+            bool has = allDocumentNames.Any(docName =>
+            {
+                // First try explicit DocumentType match
+                if (string.Equals(docName, mandatoryReq.DocumentName, StringComparison.OrdinalIgnoreCase))
+                    return true;
+
+                // Then try token matching (heuristic)
+                var docTokens = System.Text.RegularExpressions.Regex.Replace(docName, "\\W+", " ")
+                    .Split(' ', System.StringSplitOptions.RemoveEmptyEntries)
+                    .Where(t => t.Length > 1)
+                    .ToArray();
+
+                return reqTokens.Any(reqToken => docTokens.Any(docToken => 
+                    string.Equals(reqToken, docToken, StringComparison.OrdinalIgnoreCase)));
+            });
+
+            if (!has)
+            {
+                missingDocuments.Add(mandatoryReq.DocumentName ?? "Unknown Document");
+            }
+        }
+
+        bool isValid = missingDocuments.Count == 0;
+        return (isValid, missingDocuments);
     }
 }

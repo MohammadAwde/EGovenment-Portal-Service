@@ -39,6 +39,10 @@
                         </div>
                         <ul id="requirements-list" class="list-group list-group-flush">
                         </ul>
+                        <div id="requirements-note" class="p-3 border-top small" style="background:rgba(0,98,51,.05);color:var(--lb-green-dark);">
+                            <i class="bi bi-exclamation-circle me-1"></i>
+                            <strong>Important:</strong> You must upload <span id="mandatory-count">0</span> mandatory document(s) to submit your request. Optional documents can be added later.
+                        </div>
                     </div>
                 </div>
 
@@ -49,7 +53,12 @@
                 </div>
 
                 <div class="mb-4">
-                    <label class="form-label"><i class="bi bi-paperclip me-1"></i>Attach Documents (optional)</label>
+                    <label class="form-label"><i class="bi bi-paperclip me-1"></i>Attach Documents</label>
+                    <div id="requirementStatus" class="alert alert-warning" style="display:none;">
+                        <i class="bi bi-exclamation-triangle me-1"></i>
+                        <strong id="statusMessage">Please upload all required documents</strong>
+                        <div id="missingDocsList" class="mt-2 small"></div>
+                    </div>
                     <div class="card border-2 border-dashed p-4 text-center" id="dropZone" style="cursor:pointer;background-color:#f8f9fa;border-color:#dee2e6!important;">
                         <input type="file" name="documents" id="fileInput" class="form-control d-none" multiple accept="@allowedExtensionsAccept" />
                         <div class="mb-2">
@@ -71,7 +80,7 @@
                     <button type="submit" name="saveAsDraft" value="true" class="btn btn-outline-secondary" id="saveDraftBtn">
                         <i class="bi bi-save me-1"></i>Save as Draft
                     </button>
-                    <button type="submit" class="btn btn-lb-primary" id="submitBtn">
+                    <button type="submit" class="btn btn-lb-primary" id="submitBtn" disabled>
                         <i class="bi bi-send me-1"></i>Submit Request
                     </button>
                     <a asp-action="Index" class="btn btn-outline-secondary">
@@ -87,7 +96,7 @@
             <h6><i class="bi bi-lightbulb me-1"></i>Tips</h6>
             <ul class="list-unstyled mb-0 small">
                 <li class="mb-2"><i class="bi bi-check-circle text-success me-1"></i> Select a service to see which documents are required.</li>
-                <li class="mb-2"><i class="bi bi-file-earmark-arrow-up text-primary me-1"></i> Upload all required documents to avoid delays.</li>
+                <li class="mb-2"><i class="bi bi-file-earmark-arrow-up text-primary me-1"></i> Upload <strong>all required documents</strong> before submitting.</li>
                 <li class="mb-2"><i class="bi bi-clock-history text-warning me-1"></i> Processing times depend on the service type.</li>
                 <li class="mb-2"><i class="bi bi-bell text-info me-1"></i> You'll receive notifications for every status change.</li>
                 <li><i class="bi bi-save text-muted me-1"></i> Save as Draft to complete the form later.</li>
@@ -97,8 +106,8 @@
         <div class="lb-info-card mt-3" id="statusInfo" style="display:none;">
             <h6><i class="bi bi-info-circle me-1"></i>Request Status</h6>
             <p class="mb-0 small">
-                <strong>Draft:</strong> You can edit and upload more documents before submitting.<br/>
-                <strong>Submitted:</strong> Your request has been sent for review and cannot be edited. New documents can still be added.
+                <strong>Draft:</strong> You can edit and upload documents without completing all requirements.<br/>
+                <strong>Submitted:</strong> Your request has been sent for review and cannot be edited. New documents can still be added if requested.
             </p>
         </div>
     </div>
@@ -110,6 +119,8 @@
         const maxSizeMB = @maxSizeMB;
         const allowedExtensions = '@allowedExtensionsAccept'.split(',').map(e => e.trim().toLowerCase());
         let selectedFiles = [];
+        let requiredDocuments = [];
+        let uploadedDocuments = {};
 
         // Initialize drag and drop
         const dropZone = document.getElementById('dropZone');
@@ -206,6 +217,7 @@
                 const li = document.createElement('li');
                 li.className = 'list-group-item d-flex justify-content-between align-items-center';
                 li.innerHTML = `
+
                     <div>
                         <i class="bi bi-file me-2"></i>
                         <span>${file.name}</span>
@@ -280,22 +292,37 @@
                     return response.json();
                 })
                 .then(function (data) {
+                    requiredDocuments = data;
+                    let mandatoryCount = 0;
+                    let optionalCount = 0;
+
                     if (data.length === 0) {
                         list.innerHTML = '<li class="list-group-item text-muted">No specific documents required for this service.</li>';
+                        document.getElementById('mandatory-count').textContent = '0';
+                        document.getElementById('submitBtn').disabled = false;
                     } else {
                         data.forEach(function (doc) {
                             var li = document.createElement('li');
                             li.className = 'list-group-item d-flex justify-content-between align-items-start';
 
-                            var badge = doc.isMandatory
-                                ? '<span class="badge lb-rejected">Required</span>'
-                                : '<span class="badge lb-cancelled">Optional</span>';
+                            if (doc.isMandatory) {
+                                mandatoryCount++;
+                                var badge = '<span class="badge lb-rejected"><i class="bi bi-exclamation-circle me-1"></i>Required</span>';
+                            } else {
+                                optionalCount++;
+                                var badge = '<span class="badge lb-cancelled"><i class="bi bi-check-circle me-1"></i>Optional</span>';
+                            }
+
                             li.innerHTML = '<div><strong>' + doc.documentName + '</strong>'
                                 + (doc.description ? '<br/><small class="text-muted">' + doc.description + '</small>' : '')
                                 + '</div>' + badge;
                             list.appendChild(li);
                         });
+
+                        document.getElementById('mandatory-count').textContent = mandatoryCount;
+                        updateRequirementStatus();
                     }
+
                     section.style.display = 'block';
                     statusInfo.style.display = 'block';
                 })
@@ -306,11 +333,81 @@
                 });
         });
 
+        // Update the submit button and requirement status based on uploaded files
+        function updateRequirementStatus() {
+            if (requiredDocuments.length === 0) {
+                document.getElementById('submitBtn').disabled = false;
+                document.getElementById('requirementStatus').style.display = 'none';
+                return;
+            }
+
+            const mandatoryDocs = requiredDocuments.filter(d => d.isMandatory);
+            const missingDocs = [];
+
+            // Check which mandatory documents are missing
+            mandatoryDocs.forEach(doc => {
+                const docName = doc.documentName.toLowerCase();
+                const docTokens = docName.replace(/\W+/g, ' ').split(' ').filter(t => t.length > 1);
+
+                let hasDoc = false;
+
+                // Check against uploaded files
+                selectedFiles.forEach(file => {
+                    const fileName = file.name.toLowerCase();
+                    const fileTokens = fileName.replace(/\W+/g, ' ').split(' ').filter(t => t.length > 1);
+
+                    // Check if any token matches
+                    if (docTokens.some(dt => fileTokens.some(ft => dt === ft))) {
+                        hasDoc = true;
+                    }
+                });
+
+                if (!hasDoc) {
+                    missingDocs.push(doc.documentName);
+                }
+            });
+
+            // Update UI
+            const statusDiv = document.getElementById('requirementStatus');
+            const submitBtn = document.getElementById('submitBtn');
+
+            if (missingDocs.length > 0) {
+                statusDiv.style.display = 'block';
+                submitBtn.disabled = true;
+                submitBtn.title = 'Please upload all required documents';
+
+                const missingList = document.getElementById('missingDocsList');
+                missingList.innerHTML = '<strong>Missing:</strong> ' + missingDocs.join(', ');
+            } else {
+                statusDiv.style.display = 'none';
+                submitBtn.disabled = false;
+                submitBtn.title = '';
+            }
+        }
+
+        // Override handleFiles to also update requirement status
+        const originalHandleFiles = handleFiles;
+        handleFiles = function(files) {
+            originalHandleFiles(files);
+            updateRequirementStatus();
+        }
+
         // Form validation
         document.getElementById('serviceRequestForm').addEventListener('submit', function (e) {
             if (document.getElementById('GovernmentServiceId').value === '') {
                 e.preventDefault();
                 alert('Please select a service');
+                return false;
+            }
+
+            // Check if submit button (not save draft) was clicked
+            const submitBtn = document.getElementById('submitBtn');
+            const saveDraftBtn = document.getElementById('saveDraftBtn');
+            
+            // If submitting (not draft), validate requirements server-side will catch this too
+            if (e.submitter === submitBtn && submitBtn.disabled) {
+                e.preventDefault();
+                alert('Please upload all required documents before submitting.');
                 return false;
             }
         });

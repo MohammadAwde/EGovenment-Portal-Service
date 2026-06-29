@@ -14,13 +14,13 @@
 <div class="row">
     <div class="col-lg-8">
         <div class="lb-form-card">
-            <form asp-action="Edit" method="post" enctype="multipart/form-data">
+            <form asp-action="Edit" method="post" enctype="multipart/form-data" id="editServiceRequestForm" novalidate>
                 <input asp-for="Id" type="hidden" />
                 <div asp-validation-summary="All" class="alert alert-danger"></div>
 
                 <div class="mb-3">
                     <label asp-for="GovernmentServiceId" class="form-label">Government Service</label>
-                    <select asp-for="GovernmentServiceId" asp-items="@(ViewBag.Services as SelectList)" class="form-select">
+                    <select asp-for="GovernmentServiceId" asp-items="@(ViewBag.Services as SelectList)" class="form-select" id="GovernmentServiceId">
                         <option value="">-- Select a Service --</option>
                     </select>
                     <span asp-validation-for="GovernmentServiceId" class="text-danger small"></span>
@@ -33,6 +33,11 @@
                         </div>
                         <ul id="requirements-list" class="list-group list-group-flush">
                         </ul>
+                        <div id="requirements-note" class="p-3 border-top small" style="background:rgba(0,98,51,.05);color:var(--lb-green-dark);">
+                            <i class="bi bi-exclamation-circle me-1"></i>
+                            <strong>Important:</strong> You must upload <span id="mandatory-count">0</span> mandatory document(s) to submit your request. 
+                            Optional documents can be added later.
+                        </div>
                     </div>
                 </div>
 
@@ -43,18 +48,23 @@
                 </div>
 
                 <div class="mb-4">
-                    <label class="form-label"><i class="bi bi-paperclip me-1"></i>Attach Documents (optional)</label>
-                    <input type="file" name="documents" class="form-control" multiple accept="@allowedExtensionsAccept" />
+                    <label class="form-label"><i class="bi bi-paperclip me-1"></i>Attach Documents</label>
+                    <div id="requirementStatus" class="alert alert-warning" style="display:none;">
+                        <i class="bi bi-exclamation-triangle me-1"></i>
+                        <strong id="statusMessage">Please upload all required documents</strong>
+                        <div id="missingDocsList" class="mt-2 small"></div>
+                    </div>
+                    <input type="file" name="documents" id="fileInput" class="form-control" multiple accept="@allowedExtensionsAccept" />
                     <div class="form-text">
                         Max file size: @maxSizeMB MB. Allowed types: @allowedExtensions
                     </div>
                 </div>
 
                 <div class="d-flex gap-2">
-                    <button type="submit" name="saveAsDraft" value="true" class="btn btn-outline-secondary">
+                    <button type="submit" name="saveAsDraft" value="true" class="btn btn-outline-secondary" id="saveDraftBtn">
                         <i class="bi bi-save me-1"></i>Save as Draft
                     </button>
-                    <button type="submit" class="btn btn-lb-primary">
+                    <button type="submit" class="btn btn-lb-primary" id="submitBtn" disabled>
                         <i class="bi bi-send me-1"></i>Submit Request
                     </button>
                     <a asp-action="Details" asp-route-id="@Model.Id" class="btn btn-outline-secondary">
@@ -69,7 +79,7 @@
             <h6><i class="bi bi-lightbulb me-1"></i>Tips</h6>
             <ul class="list-unstyled mb-0 small">
                 <li class="mb-2"><i class="bi bi-check-circle text-success me-1"></i> You can save progress and complete later.</li>
-                <li class="mb-2"><i class="bi bi-file-earmark-arrow-up text-primary me-1"></i> Upload all required documents before submission.</li>
+                <li class="mb-2"><i class="bi bi-file-earmark-arrow-up text-primary me-1"></i> Upload <strong>all required documents</strong> before submission.</li>
                 <li class="mb-2"><i class="bi bi-clock-history text-warning me-1"></i> Submitting will start the review workflow.</li>
                 <li><i class="bi bi-bell text-info me-1"></i> Notifications are sent on status changes.</li>
             </ul>
@@ -80,6 +90,75 @@
 @section Scripts {
     <partial name="_ValidationScriptsPartial" />
     <script>
+        let requiredDocuments = [];
+        let selectedFiles = [];
+
+        const fileInput = document.getElementById('fileInput');
+        const form = document.getElementById('editServiceRequestForm');
+
+        fileInput.addEventListener('change', (e) => {
+            const files = Array.from(e.target.files);
+            selectedFiles = files;
+            updateRequirementStatus();
+        });
+
+        function updateRequirementStatus() {
+            if (requiredDocuments.length === 0) {
+                document.getElementById('submitBtn').disabled = false;
+                document.getElementById('requirementStatus').style.display = 'none';
+                return;
+            }
+
+            const mandatoryDocs = requiredDocuments.filter(d => d.isMandatory);
+            const missingDocs = [];
+
+            mandatoryDocs.forEach(doc => {
+                const docName = doc.documentName.toLowerCase();
+                const docTokens = docName.replace(/\W+/g, ' ').split(' ').filter(t => t.length > 1);
+
+                let hasDoc = false;
+
+                selectedFiles.forEach(file => {
+                    const fileName = file.name.toLowerCase();
+                    const fileTokens = fileName.replace(/\W+/g, ' ').split(' ').filter(t => t.length > 1);
+
+                    if (docTokens.some(dt => fileTokens.some(ft => dt === ft))) {
+                        hasDoc = true;
+                    }
+                });
+
+                if (!hasDoc) {
+                    missingDocs.push(doc.documentName);
+                }
+            });
+
+            const statusDiv = document.getElementById('requirementStatus');
+            const submitBtn = document.getElementById('submitBtn');
+
+            if (missingDocs.length > 0) {
+                statusDiv.style.display = 'block';
+                submitBtn.disabled = true;
+                submitBtn.title = 'Please upload all required documents';
+
+                const missingList = document.getElementById('missingDocsList');
+                missingList.innerHTML = '<strong>Missing:</strong> ' + missingDocs.join(', ');
+            } else {
+                statusDiv.style.display = 'none';
+                submitBtn.disabled = false;
+                submitBtn.title = '';
+            }
+        }
+
+        form.addEventListener('submit', function (e) {
+            const submitBtn = document.getElementById('submitBtn');
+            
+            if (e.submitter === submitBtn && submitBtn.disabled) {
+                e.preventDefault();
+                alert('Please upload all required documents before submitting.');
+                return false;
+            }
+        });
+
         document.getElementById('GovernmentServiceId').addEventListener('change', function () {
             var serviceId = this.value;
             var section = document.getElementById('requirements-section');
@@ -88,6 +167,7 @@
 
             if (!serviceId) {
                 section.style.display = 'none';
+                document.getElementById('submitBtn').disabled = false;
                 return;
             }
 
@@ -97,26 +177,44 @@
                     return response.json();
                 })
                 .then(function (data) {
+                    requiredDocuments = data;
+                    let mandatoryCount = 0;
+
                     if (data.length === 0) {
                         list.innerHTML = '<li class="list-group-item text-muted">No specific documents required for this service.</li>';
+                        document.getElementById('mandatory-count').textContent = '0';
+                        document.getElementById('submitBtn').disabled = false;
                     } else {
                         data.forEach(function (doc) {
                             var li = document.createElement('li');
                             li.className = 'list-group-item d-flex justify-content-between align-items-start';
-                            var badge = doc.isMandatory
-                                ? '<span class="badge lb-rejected">Required</span>'
-                                : '<span class="badge lb-cancelled">Optional</span>';
+
+                            if (doc.isMandatory) {
+                                mandatoryCount++;
+                                var badge = '<span class="badge lb-rejected"><i class="bi bi-exclamation-circle me-1"></i>Required</span>';
+                            } else {
+                                var badge = '<span class="badge lb-cancelled"><i class="bi bi-check-circle me-1"></i>Optional</span>';
+                            }
+
                             li.innerHTML = '<div><strong>' + doc.documentName + '</strong>'
                                 + (doc.description ? '<br/><small class="text-muted">' + doc.description + '</small>' : '')
                                 + '</div>' + badge;
                             list.appendChild(li);
                         });
+
+                        document.getElementById('mandatory-count').textContent = mandatoryCount;
+                        updateRequirementStatus();
                     }
+
                     section.style.display = 'block';
                 })
                 .catch(function () {
                     section.style.display = 'none';
+                    document.getElementById('submitBtn').disabled = false;
                 });
         });
+
+        // Trigger change event on page load to show requirements for selected service
+        document.getElementById('GovernmentServiceId').dispatchEvent(new Event('change'));
     </script>
 }
