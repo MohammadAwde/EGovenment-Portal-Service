@@ -410,7 +410,9 @@ public class ServiceRequestController : Controller
             // Create the request first with Draft status temporarily to get an ID for validation
             var tempModel = model;
             tempModel.Status = ServiceRequestStatus.Draft;
-            var tempRequest = await _serviceRequestService.CreateAsync(tempModel);
+            // Create a draft first to obtain an ID for file validation. Use SaveDraftAsync to avoid
+            // duplicate-submission checks present in CreateAsync which only applies to final submissions.
+            var tempRequest = await _serviceRequestService.SaveDraftAsync(tempModel);
 
             // Now validate all mandatory requirements
             var (allRequirementsMet, missingDocs) = await ValidateAllMandatoryRequirementsMetAsync(

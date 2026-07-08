@@ -14,6 +14,55 @@
         <div class="lb-form-card">
             <form asp-action="CreateService" method="post">
                 <div asp-validation-summary="ModelOnly" class="alert alert-danger"></div>
+
+                <hr class="my-4" />
+
+                <h5 class="text-uppercase fw-bold mb-3" style="color: var(--lb-green-dark); letter-spacing: .04em;">
+                    <i class="bi bi-file-earmark-text me-2"></i>Required Documents
+                </h5>
+
+                <p class="text-muted small mb-3">
+                    <i class="bi bi-info-circle me-1"></i>Add documents that citizens must upload to submit a request for this service. 
+                    Mark as <strong>Mandatory</strong> if the document is required, or <strong>Optional</strong> if it's nice to have.
+                </p>
+
+                <div id="requirementsContainer" class="mb-3">
+                    <div class="requirement-item mb-3 p-3 border rounded-2" style="background: #f8f9fa;">
+                        <div class="row g-2">
+                            <div class="col-md-4">
+                                <input type="text" 
+                                       name="requirements[0].DocumentName" 
+                                       class="form-control" 
+                                       placeholder="e.g., National ID" />
+                            </div>
+                            <div class="col-md-5">
+                                <input type="text" 
+                                       name="requirements[0].Description" 
+                                       class="form-control" 
+                                       placeholder="Optional description (optional)" />
+                            </div>
+                            <div class="col-md-2">
+                                <div class="form-check mt-1">
+                                    <input type="checkbox" 
+                                           name="requirements[0].IsMandatory" 
+                                           value="true" 
+                                           class="form-check-input" 
+                                           checked />
+                                    <label class="form-check-label small">Mandatory</label>
+                                </div>
+                            </div>
+                            <div class="col-md-1">
+                                <button type="button" class="btn btn-sm btn-outline-danger" onclick="removeRequirement(this)">
+                                    <i class="bi bi-trash"></i>
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <button type="button" class="btn btn-sm btn-outline-primary mb-4" id="addRequirementBtn">
+                    <i class="bi bi-plus-circle me-1"></i>Add Another Document
+                </button>
                 <div class="mb-3">
                     <label asp-for="Name" class="form-label"></label>
                     <input asp-for="Name" class="form-control" />
@@ -76,4 +125,68 @@
 
 @section Scripts {
     <partial name="_ValidationScriptsPartial" />
+    <script>
+        let requirementCount = 1;
+
+        document.getElementById('addRequirementBtn').addEventListener('click', function () {
+            const container = document.getElementById('requirementsContainer');
+            const newRequirement = document.createElement('div');
+            newRequirement.className = 'requirement-item mb-3 p-3 border rounded-2';
+            newRequirement.style.background = '#f8f9fa';
+            newRequirement.innerHTML = `
+                <div class="row g-2">
+                    <div class="col-md-4">
+                        <input type="text" 
+                               name="requirements[${requirementCount}].DocumentName" 
+                               class="form-control" 
+                               placeholder="e.g., Tax Certificate" />
+                    </div>
+                    <div class="col-md-5">
+                        <input type="text" 
+                               name="requirements[${requirementCount}].Description" 
+                               class="form-control" 
+                               placeholder="Optional description (optional)" />
+                    </div>
+                    <div class="col-md-2">
+                        <div class="form-check mt-1">
+                            <input type="checkbox" 
+                                   name="requirements[${requirementCount}].IsMandatory" 
+                                   value="true" 
+                                   class="form-check-input" 
+                                   checked />
+                            <label class="form-check-label small">Mandatory</label>
+                        </div>
+                    </div>
+                    <div class="col-md-1">
+                        <button type="button" class="btn btn-sm btn-outline-danger" onclick="removeRequirement(this)">
+                            <i class="bi bi-trash"></i>
+                        </button>
+                    </div>
+                </div>
+            `;
+            container.appendChild(newRequirement);
+            requirementCount++;
+        });
+
+        function removeRequirement(btn) {
+            btn.closest('.requirement-item').remove();
+        }
+        // If navigated with fragment to requirementsContainer, smooth scroll and highlight
+        (function(){
+            try {
+                if (window.location.hash === '#requirementsContainer') {
+                    var el = document.getElementById('requirementsContainer');
+                    if (el) {
+                        el.scrollIntoView({ behavior: 'smooth', block: 'start' });
+                        el.style.transition = 'box-shadow 0.3s ease, border 0.3s ease';
+                        el.style.boxShadow = '0 0 0 4px rgba(16, 185, 129, 0.12)';
+                        el.style.border = '1px solid rgba(16,185,129,0.6)';
+                        setTimeout(function(){ el.style.boxShadow = ''; el.style.border = ''; }, 3000);
+                        var first = el.querySelector('input[name$=".DocumentName"]');
+                        if (first) first.focus();
+                    }
+                }
+            } catch (e) { /* ignore */ }
+        })();
+    </script>
 }

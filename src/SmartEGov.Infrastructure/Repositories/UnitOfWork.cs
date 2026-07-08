@@ -23,6 +23,7 @@ public class UnitOfWork : IUnitOfWork
         Appointments = new AppointmentRepository(context);
         ServiceCenters = new ServiceCenterRepository(context);
         DocumentProfiles = new DocumentProfileRepository(context);
+        RequiredDocuments = new RequiredDocumentRepository(context);
     }
 
     public ICitizenRepository Citizens { get; }
@@ -38,6 +39,7 @@ public class UnitOfWork : IUnitOfWork
     public IAppointmentRepository Appointments { get; }
     public IServiceCenterRepository ServiceCenters { get; }
     public IDocumentProfileRepository DocumentProfiles { get; }
+    public IRequiredDocumentRepository RequiredDocuments { get; }
 
     public async Task<int> SaveChangesAsync()
     {

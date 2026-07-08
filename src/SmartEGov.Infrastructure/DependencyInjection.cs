@@ -42,6 +42,7 @@ public static class DependencyInjection
         services.AddScoped<IAppointmentRepository, AppointmentRepository>();
         services.AddScoped<IServiceCenterRepository, ServiceCenterRepository>();
         services.AddScoped<IDocumentProfileRepository, DocumentProfileRepository>();
+        services.AddScoped<IRequiredDocumentRepository, RequiredDocumentRepository>();
 
 
         services.AddScoped<ICitizenService, CitizenService>();

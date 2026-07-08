@@ -5,9 +5,9 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>@ViewData["Title"] - Lebanese E-Government Portal</title>
     <link rel="stylesheet" href="~/lib/bootstrap/dist/css/bootstrap.min.css" />
-    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.min.css" crossorigin="anonymous" />
-    <!-- Local fallback: only include if local file exists to avoid MIME/404 warnings when CDN is blocked -->
     @{
+        // Prefer a local copy of bootstrap-icons when available (avoids tracking-prevention CDN blocks).
+        // If local copy isn't present, fall back to the CDN.
         try
         {
             var env = Context.RequestServices.GetService(typeof(Microsoft.AspNetCore.Hosting.IWebHostEnvironment)) as Microsoft.AspNetCore.Hosting.IWebHostEnvironment;
@@ -22,13 +22,19 @@
             {
                 <link rel="stylesheet" href="~/lib/bootstrap-icons/font/bootstrap-icons.min.css" asp-append-version="true" />
             }
+            else
+            {
+                <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.min.css" crossorigin="anonymous" />
+            }
         }
         catch
         {
-            // ignore - don't render local fallback if any error occurs
+            // Fall back to CDN if anything goes wrong
+            <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.min.css" crossorigin="anonymous" />
         }
     }
     <link rel="stylesheet" href="~/css/site.css" asp-append-version="true" />
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;600;700;800&display=swap" rel="stylesheet">
 </head>
 <body>
     <!-- Top announcement bar -->
@@ -66,6 +72,11 @@
                     </li>
                     @if (User.Identity != null && User.Identity.IsAuthenticated)
                     {
+                        <li class="nav-item d-flex align-items-center me-2">
+                            <button id="toggleDarkMode" class="btn btn-sm btn-outline-light" data-bs-toggle="tooltip" title="Toggle dark mode">
+                                <i class="bi bi-moon-fill"></i>
+                            </button>
+                        </li>
                         @if (User.IsInRole("Citizen"))
                         {
                             <li class="nav-item">

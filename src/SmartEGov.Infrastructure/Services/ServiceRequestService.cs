@@ -132,7 +132,9 @@ public class ServiceRequestService : IServiceRequestService
             CitizenId = dto.CitizenId,
             Notes = dto.Notes ?? string.Empty,
             Status = ServiceRequestStatus.Draft,
-            SubmittedAt = null
+            // The database has SubmittedAt as NOT NULL; set a placeholder timestamp for drafts so inserts succeed.
+            // The Status property is the authoritative indicator of a draft vs submitted request.
+            SubmittedAt = DateTime.UtcNow
         };
 
         await _unitOfWork.ServiceRequests.AddAsync(serviceRequest);
@@ -156,11 +158,13 @@ public class ServiceRequestService : IServiceRequestService
 
         var originalStatus = request.Status;
 
-        // Only allow edits for drafts or allow changing fields before submission
-        // Business rule: if request already progressed beyond Draft, editing core fields is restricted
-        if (originalStatus != ServiceRequestStatus.Draft && originalStatus != ServiceRequestStatus.Submitted)
+        // Only allow edits for drafts, submitted requests, or requests needing more information
+        // Business rule: if request already progressed beyond these stages, editing core fields is restricted
+        if (originalStatus != ServiceRequestStatus.Draft
+            && originalStatus != ServiceRequestStatus.Submitted
+            && originalStatus != ServiceRequestStatus.PendingInformation)
         {
-            throw new InvalidOperationException("Only draft or submitted requests can be edited.");
+            throw new InvalidOperationException("Only draft, submitted, or requests needing additional information can be edited.");
         }
 
         request.GovernmentServiceId = dto.GovernmentServiceId;

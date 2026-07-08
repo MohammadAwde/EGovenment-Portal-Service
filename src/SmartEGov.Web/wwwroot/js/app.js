@@ -126,6 +126,34 @@
     });
   }
 
+  // Dark mode toggle
+  function initDarkMode() {
+    var toggle = document.getElementById('toggleDarkMode');
+    if (!toggle) return;
+    function apply(isDark) {
+      if (isDark) document.body.classList.add('dark-theme'); else document.body.classList.remove('dark-theme');
+      var icon = toggle.querySelector('i');
+      if (icon) icon.className = isDark ? 'bi bi-sun-fill' : 'bi bi-moon-fill';
+      try { localStorage.setItem('smartegov:dark', isDark ? '1' : '0'); } catch(e){}
+    }
+    // initial state
+    try {
+      var stored = localStorage.getItem('smartegov:dark');
+      if (stored === null) {
+        // follow system preference
+        var prefers = window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches;
+        apply(prefers);
+      } else {
+        apply(stored === '1');
+      }
+    } catch(e) { apply(false); }
+
+    toggle.addEventListener('click', function () {
+      var isDark = document.body.classList.contains('dark-theme');
+      apply(!isDark);
+    });
+  }
+
   function init() {
     initScrollToTop();
     animateCounters();
@@ -135,6 +163,7 @@
     initFormLoadingStates();
     initCardAnimations();
     initTooltips();
+    initDarkMode();
   }
 
   if (document.readyState === "loading") {
