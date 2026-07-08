@@ -7,6 +7,12 @@ using SmartEGov.Infrastructure.Authorization;
 using SmartEGov.Infrastructure.Middleware;
 using Microsoft.AspNetCore.Http;
 using System.Security.Cryptography;
+using System.IO;
+using System.Threading.RateLimiting;
+using Microsoft.AspNetCore.RateLimiting;
+using Microsoft.AspNetCore.ResponseCompression;
+using System.Linq;
+using Microsoft.AspNetCore.DataProtection;
 
 
 var builder = WebApplication.CreateBuilder(args);
@@ -39,6 +45,24 @@ builder.Services.AddIdentity<ApplicationUser, IdentityRole>(options =>
 })
 .AddEntityFrameworkStores<ApplicationDbContext>()
 .AddDefaultTokenProviders();
+
+// Add external authentication providers (Google, Apple)
+// Configure only when configuration values are present to allow optional setup.
+var googleClientId = builder.Configuration["Authentication:Google:ClientId"];
+var googleClientSecret = builder.Configuration["Authentication:Google:ClientSecret"];
+if (!string.IsNullOrWhiteSpace(googleClientId) && !string.IsNullOrWhiteSpace(googleClientSecret))
+{
+    builder.Services.AddAuthentication()
+        .AddGoogle("Google", options =>
+        {
+            options.ClientId = googleClientId;
+            options.ClientSecret = googleClientSecret;
+            options.SignInScheme = IdentityConstants.ExternalScheme;
+            options.SaveTokens = true;
+        });
+}
+
+// Apple Sign In requires additional setup (private key and client secret). Add when ready using AspNet.Security.OAuth.Apple
 
 builder.Services.ConfigureApplicationCookie(options =>
 {
@@ -77,6 +101,49 @@ builder.Services.AddHsts(options =>
 });
 
 builder.Services.AddControllersWithViews();
+
+// Performance, resilience and scalability
+// Response compression (gzip/brotli) to reduce bandwidth and improve client latency
+builder.Services.AddResponseCompression(options =>
+{
+    options.EnableForHttps = true;
+    options.Providers.Add<BrotliCompressionProvider>();
+    options.Providers.Add<GzipCompressionProvider>();
+    options.MimeTypes = ResponseCompressionDefaults.MimeTypes.Concat(new[] { "application/json" });
+});
+builder.Services.Configure<BrotliCompressionProviderOptions>(opt => opt.Level = System.IO.Compression.CompressionLevel.Fastest);
+builder.Services.Configure<GzipCompressionProviderOptions>(opt => opt.Level = System.IO.Compression.CompressionLevel.Fastest);
+
+// In-memory caches to reduce DB pressure. For production, replace with Redis/Distributed cache.
+builder.Services.AddMemoryCache();
+builder.Services.AddDistributedMemoryCache();
+
+// Data protection - persist keys to disk so deployed instances can share keys (replace with Redis/Azure Blob in production)
+builder.Services.AddDataProtection()
+    .SetApplicationName("SmartEGov")
+    .PersistKeysToFileSystem(new DirectoryInfo(Path.Combine(builder.Environment.ContentRootPath, "keys")));
+
+// Health checks (useful for load balancers / orchestrators)
+builder.Services.AddHealthChecks();
+
+// Simple rate limiting to protect against spikes and abusive clients.
+// Tune PermitLimit/Window/QueueLimit based on expected traffic and capacity.
+builder.Services.AddRateLimiter(options =>
+{
+    options.RejectionStatusCode = 429;
+    options.GlobalLimiter = PartitionedRateLimiter.Create<HttpContext, string>(httpContext =>
+    {
+        // Partition by remote IP (best-effort). Adjust partitioning as needed (API key, user id, etc.).
+        var ip = httpContext.Connection.RemoteIpAddress?.ToString() ?? "unknown";
+        return RateLimitPartition.GetFixedWindowLimiter(ip, _ => new FixedWindowRateLimiterOptions
+        {
+            PermitLimit = 100, // requests per window per IP - tune this
+            Window = TimeSpan.FromSeconds(1),
+            QueueProcessingOrder = QueueProcessingOrder.OldestFirst,
+            QueueLimit = 50
+        });
+    });
+});
 
 var app = builder.Build();
 
@@ -211,8 +278,16 @@ app.UseCookiePolicy(new CookiePolicyOptions
 });
 
 app.UseHttpsRedirection();
+// Compress responses to reduce bandwidth and speed up responses under load
+app.UseResponseCompression();
 app.UseStaticFiles();
 app.UseRouting();
+
+// Rate limiting protects the app from abusive/spiky traffic. This should be tuned to your environment.
+app.UseRateLimiter();
+
+// Response caching - configure Cache-Control headers where appropriate in controllers/views
+app.UseResponseCaching();
 
 app.UseAuthentication();
 app.UseAuthorization();
@@ -220,6 +295,9 @@ app.UseAuthorization();
 app.MapControllerRoute(
     name: "default",
     pattern: "{controller=Home}/{action=Index}/{id?}");
+
+// Health endpoint for load balancers / orchestrators
+app.MapHealthChecks("/health");
 
 
 

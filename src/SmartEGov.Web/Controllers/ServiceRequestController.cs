@@ -295,7 +295,7 @@ public class ServiceRequestController : Controller
 
                 if (!has)
                 {
-                    missing.Add(req.DocumentName);
+                    missing.Add(req.DocumentName ?? string.Empty);
                 }
             }
         }
