@@ -16,19 +16,22 @@ public class AdminController : Controller
     private readonly IUnitOfWork _unitOfWork;
     private readonly IAuditLogService _auditLogService;
     private readonly IDashboardService _dashboardService;
+    private readonly IPublicHolidayRepository _holidays;
 
     public AdminController(
         UserManager<ApplicationUser> userManager,
         RoleManager<IdentityRole> roleManager,
         IUnitOfWork unitOfWork,
         IAuditLogService auditLogService,
-        IDashboardService dashboardService)
+        IDashboardService dashboardService,
+        IPublicHolidayRepository holidays)
     {
         _userManager = userManager;
         _roleManager = roleManager;
         _unitOfWork = unitOfWork;
         _auditLogService = auditLogService;
         _dashboardService = dashboardService;
+            _holidays = holidays; 
     }
 
     public async Task<IActionResult> Index()
@@ -274,5 +277,55 @@ public class AdminController : Controller
         if (a != null) { a.Status = "No-Show"; _unitOfWork.Appointments.Update(a); await _unitOfWork.SaveChangesAsync(); }
         TempData["Success"] = "Appointment marked as no-show.";
         return RedirectToAction("Appointments");
+    }
+    [HttpGet]
+    public async Task<IActionResult> Holidays()
+    {
+        var holidays = await _holidays.GetAllAsync();
+        return View(holidays);
+    }
+
+    [HttpPost, ValidateAntiForgeryToken]
+    public async Task<IActionResult> AddHoliday(string name, string nameAr,
+        int day, int month, int? year)
+    {
+        await _holidays.AddAsync(new SmartEGov.Domain.Entities.PublicHoliday
+        {
+            Name = name,
+            NameAr = nameAr,
+            Day = day,
+            Month = month,
+            Year = year,
+            IsActive = true
+        });
+        await _unitOfWork.SaveChangesAsync();
+        TempData["Success"] = "Holiday added.";
+        return RedirectToAction("Holidays");
+    }
+
+    [HttpPost, ValidateAntiForgeryToken]
+    public async Task<IActionResult> DeleteHoliday(int id)
+    {
+        var h = await _holidays.GetByIdAsync(id);
+        if (h != null)
+        {
+            _holidays.Remove(h);
+            await _unitOfWork.SaveChangesAsync();
+            TempData["Success"] = "Holiday deleted.";
+        }
+        return RedirectToAction("Holidays");
+    }
+
+    [HttpPost, ValidateAntiForgeryToken]
+    public async Task<IActionResult> ToggleHoliday(int id)
+    {
+        var h = await _holidays.GetByIdAsync(id);
+        if (h != null)
+        {
+            h.IsActive = !h.IsActive;
+            _holidays.Update(h);
+            await _unitOfWork.SaveChangesAsync();
+        }
+        return RedirectToAction("Holidays");
     }
 }

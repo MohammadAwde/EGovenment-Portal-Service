@@ -1,0 +1,103 @@
+<?xml version="1.0" encoding="utf-8"?>
+<root>
+  <xsd:schema id="root" xmlns="" xmlns:xsd="http://www.w3.org/2001/XMLSchema" xmlns:msdata="urn:schemas-microsoft-com:xml-msdata">
+    <xsd:element name="root" msdata:IsDataSet="true">
+      <xsd:complexType>
+        <xsd:choice maxOccurs="unbounded">
+          <xsd:element name="data">
+            <xsd:complexType>
+              <xsd:sequence>
+                <xsd:element name="value" type="xsd:string" minOccurs="0" msdata:Ordinal="1" />
+              </xsd:sequence>
+              <xsd:attribute name="name" type="xsd:string" />
+            </xsd:complexType>
+          </xsd:element>
+        </xsd:choice>
+      </xsd:complexType>
+    </xsd:element>
+  </xsd:schema>
+  <data name="Home" xml:space="preserve"><value>الرئيسية</value></data>
+  <data name="Dashboard" xml:space="preserve"><value>لوحة التحكم</value></data>
+  <data name="MyRequests" xml:space="preserve"><value>طلباتي</value></data>
+  <data name="MyAppointments" xml:space="preserve"><value>مواعيدي</value></data>
+  <data name="MyPayments" xml:space="preserve"><value>مدفوعاتي</value></data>
+  <data name="Profile" xml:space="preserve"><value>الملف الشخصي</value></data>
+  <data name="Notifications" xml:space="preserve"><value>الإشعارات</value></data>
+  <data name="Logout" xml:space="preserve"><value>تسجيل الخروج</value></data>
+  <data name="Login" xml:space="preserve"><value>تسجيل الدخول</value></data>
+  <data name="Register" xml:space="preserve"><value>إنشاء حساب</value></data>
+  <data name="Welcome" xml:space="preserve"><value>مرحباً</value></data>
+  <data name="Save" xml:space="preserve"><value>حفظ</value></data>
+  <data name="Cancel" xml:space="preserve"><value>إلغاء</value></data>
+  <data name="Edit" xml:space="preserve"><value>تعديل</value></data>
+  <data name="Delete" xml:space="preserve"><value>حذف</value></data>
+  <data name="Search" xml:space="preserve"><value>بحث</value></data>
+  <data name="Submit" xml:space="preserve"><value>إرسال</value></data>
+  <data name="Back" xml:space="preserve"><value>رجوع</value></data>
+  <data name="Next" xml:space="preserve"><value>التالي</value></data>
+  <data name="Previous" xml:space="preserve"><value>السابق</value></data>
+  <data name="Yes" xml:space="preserve"><value>نعم</value></data>
+  <data name="No" xml:space="preserve"><value>لا</value></data>
+  <data name="Loading" xml:space="preserve"><value>جاري التحميل...</value></data>
+  <data name="Success" xml:space="preserve"><value>تم بنجاح</value></data>
+  <data name="Error" xml:space="preserve"><value>خطأ</value></data>
+  <data name="Warning" xml:space="preserve"><value>تحذير</value></data>
+  <data name="FullName" xml:space="preserve"><value>الاسم الكامل</value></data>
+  <data name="Email" xml:space="preserve"><value>البريد الإلكتروني</value></data>
+  <data name="Password" xml:space="preserve"><value>كلمة المرور</value></data>
+  <data name="ConfirmPassword" xml:space="preserve"><value>تأكيد كلمة المرور</value></data>
+  <data name="PhoneNumber" xml:space="preserve"><value>رقم الهاتف</value></data>
+  <data name="Address" xml:space="preserve"><value>العنوان</value></data>
+  <data name="DateOfBirth" xml:space="preserve"><value>تاريخ الميلاد</value></data>
+  <data name="NationalId" xml:space="preserve"><value>رقم الهوية الوطنية</value></data>
+  <data name="FirstName" xml:space="preserve"><value>الاسم</value></data>
+  <data name="LastName" xml:space="preserve"><value>اللقب</value></data>
+  <data name="BookAppointment" xml:space="preserve"><value>حجز موعد</value></data>
+  <data name="ServiceCenter" xml:space="preserve"><value>مركز الخدمة</value></data>
+  <data name="AppointmentDate" xml:space="preserve"><value>تاريخ الموعد</value></data>
+  <data name="TimeSlot" xml:space="preserve"><value>الوقت</value></data>
+  <data name="Status" xml:space="preserve"><value>الحالة</value></data>
+  <data name="Booked" xml:space="preserve"><value>محجوز</value></data>
+  <data name="Cancelled" xml:space="preserve"><value>ملغى</value></data>
+  <data name="Completed" xml:space="preserve"><value>مكتمل</value></data>
+  <data name="Reschedule" xml:space="preserve"><value>إعادة جدولة</value></data>
+  <data name="CancelAppointment" xml:space="preserve"><value>إلغاء الموعد</value></data>
+  <data name="NoAppointments" xml:space="preserve"><value>لا توجد مواعيد بعد</value></data>
+  <data name="BookFirstAppointment" xml:space="preserve"><value>احجز موعدك الأول</value></data>
+  <data name="UseMyLocation" xml:space="preserve"><value>استخدام موقعي</value></data>
+  <data name="SelectCenter" xml:space="preserve"><value>اختر مركز الخدمة</value></data>
+  <data name="AvailableSlots" xml:space="preserve"><value>الأوقات المتاحة</value></data>
+  <data name="ConfirmAppointment" xml:space="preserve"><value>تأكيد الموعد</value></data>
+  <data name="GovernmentService" xml:space="preserve"><value>الخدمة الحكومية</value></data>
+  <data name="SelectService" xml:space="preserve"><value>اختر خدمة</value></data>
+  <data name="CompleteProfile" xml:space="preserve"><value>أكمل ملفك الشخصي</value></data>
+  <data name="SaveProfile" xml:space="preserve"><value>حفظ الملف الشخصي</value></data>
+  <data name="ScanID" xml:space="preserve"><value>مسح الهوية</value></data>
+  <data name="SkipScan" xml:space="preserve"><value>تخطي المسح</value></data>
+  <data name="FrontID" xml:space="preserve"><value>الوجه الأمامي</value></data>
+  <data name="BackID" xml:space="preserve"><value>الوجه الخلفي (MRZ)</value></data>
+  <data name="AutoFill" xml:space="preserve"><value>تعبئة تلقائية من صور الهوية</value></data>
+  <data name="MyProfile" xml:space="preserve"><value>ملفي الشخصي</value></data>
+  <data name="EditProfile" xml:space="preserve"><value>تعديل الملف</value></data>
+  <data name="CreateAccount" xml:space="preserve"><value>إنشاء حساب</value></data>
+  <data name="AlreadyHaveAccount" xml:space="preserve"><value>لديك حساب بالفعل؟</value></data>
+  <data name="SignIn" xml:space="preserve"><value>تسجيل الدخول</value></data>
+  <data name="Hotline" xml:space="preserve"><value>خط ساخن</value></data>
+  <data name="QuickLinks" xml:space="preserve"><value>روابط سريعة</value></data>
+  <data name="Contact" xml:space="preserve"><value>تواصل معنا</value></data>
+  <data name="PrivacyPolicy" xml:space="preserve"><value>سياسة الخصوصية</value></data>
+  <data name="AllRightsReserved" xml:space="preserve"><value>جميع الحقوق محفوظة</value></data>
+  <data name="LebanesEGovPortal" xml:space="preserve"><value>بوابة الحكومة الإلكترونية اللبنانية</value></data>
+  <data name="Step1FindCenter" xml:space="preserve"><value>الخطوة 1 — اختر مركز الخدمة</value></data>
+  <data name="Step2ChooseTime" xml:space="preserve"><value>الخطوة 2 — اختر التاريخ والوقت</value></data>
+  <data name="Reference" xml:space="preserve"><value>المرجع</value></data>
+  <data name="Date" xml:space="preserve"><value>التاريخ</value></data>
+  <data name="Actions" xml:space="preserve"><value>الإجراءات</value></data>
+  <data name="MyAppointmentsTitle" xml:space="preserve"><value>مواعيدي</value></data>
+  <data name="CreateAccountTitle" xml:space="preserve"><value>إنشاء حسابك</value></data>
+  <data name="RegisterForPortal" xml:space="preserve"><value>سجّل في بوابة الحكومة الإلكترونية اللبنانية</value></data>
+  <data name="GettingStarted" xml:space="preserve"><value>للبدء</value></data>
+  <data name="ScanOrFillManually" xml:space="preserve"><value>امسح هويتك أو املأ البيانات يدوياً</value></data>
+  <data name="SubmitProfileToActivate" xml:space="preserve"><value>أرسل ملفك لتفعيل حسابك</value></data>
+  <data name="StartRequestingServices" xml:space="preserve"><value>ابدأ بطلب الخدمات الحكومية إلكترونياً</value></data>
+</root>

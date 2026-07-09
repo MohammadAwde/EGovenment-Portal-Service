@@ -59,6 +59,8 @@ public static class DependencyInjection
         services.AddScoped<IFileValidationService, FileValidationService>();
         services.AddScoped<IAppointmentService, AppointmentService>();
         services.AddScoped<IAutoFillService, AutoFillService>();
+        services.AddScoped<IPublicHolidayRepository, PublicHolidayRepository>();
+        services.AddHostedService<AppointmentReminderService>();
 
         return services;
     }
