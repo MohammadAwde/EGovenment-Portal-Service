@@ -600,6 +600,27 @@ a:focus {
   font-size: 1.05rem;
 }
 
+/* Admin dashboard action buttons - ensure visibility on light/dark themes */
+.admin-actions .btn {
+  color: var(--lb-green-dark);
+  background: transparent;
+  border: 1px solid rgba(0,0,0,0.06);
+}
+.admin-actions .btn:hover,
+.admin-actions .btn:focus {
+  background: var(--lb-green);
+  color: #fff !important;
+  border-color: var(--lb-green);
+  transform: translateY(-2px);
+  box-shadow: var(--lb-shadow-md);
+}
+
+/* Improve contrast for outline buttons on dark theme */
+body.dark-theme .admin-actions .btn {
+  color: #e6eef6;
+  border-color: rgba(255,255,255,0.06);
+}
+
 /* ========== Forms ========== */
 .form-label {
   font-weight: 600;

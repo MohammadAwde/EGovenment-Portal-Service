@@ -637,6 +637,39 @@ public class ServiceRequestController : Controller
                 $"Service request #{id} status updated to {status}"
             );
 
+            // If the request was marked Completed, send an SMS/email notification to the citizen
+            try
+            {
+                if (string.Equals(status, "Completed", StringComparison.OrdinalIgnoreCase))
+                {
+                    var dto = await _serviceRequestService.GetByIdAsync(id);
+                    if (dto != null)
+                    {
+                        var citizen = await _unitOfWork.Citizens.GetByIdAsync(dto.CitizenId);
+                        if (citizen != null)
+                        {
+                            // Build an absolute URL to the completion file if available, otherwise to the request details
+                            string link;
+                            if (!string.IsNullOrWhiteSpace(dto.CompletionFilePath))
+                            {
+                                link = $"{Request.Scheme}://{Request.Host}{dto.CompletionFilePath}";
+                            }
+                            else
+                            {
+                                link = Url.Action("Details", "ServiceRequest", new { id = dto.Id }, Request.Scheme ?? "https");
+                            }
+
+                            var message = $"Your service request {dto.ReferenceNumber} has been completed. Download: {link}";
+                            await _notificationService.SendAsync(citizen.UserId, "Request Completed", message);
+                        }
+                    }
+                }
+            }
+            catch (Exception ex)
+            {
+                _logger.LogWarning(ex, "Failed to send completion notification for request {RequestId}", id);
+            }
+
             TempData["Success"] = $"Status updated to {status} successfully.";
         }
         catch (InvalidOperationException ex)

@@ -80,29 +80,14 @@
                         </a>
                     </li>
 
+                    @* Citizen links *@
                     @if (isLoggedIn && isCitizen)
                     {
-                        @if (User.IsInRole("Citizen"))
-                        {
-                            <li class="nav-item">
-                                <a class="nav-link" asp-controller="Citizen" asp-action="Dashboard">
-                                    <i class="bi bi-speedometer2 me-1"></i>Dashboard
-                                </a>
-                            </li>
-                        }
-                        @if (User.IsInRole("Officer"))
-                        {
-                            <li class="nav-item">
-                                <a class="nav-link" asp-controller="Officer" asp-action="Dashboard">
-                                    <i class="bi bi-speedometer2 me-1"></i>Dashboard
-                                </a>
-                            </li>
-                            <li class="nav-item">
-                                <a class="nav-link" asp-controller="Officer" asp-action="Signature">
-                                    <i class="bi bi-vector-pen me-1"></i>My Signature
-                                </a>
-                            </li>
-                        }
+                        <li class="nav-item">
+                            <a class="nav-link" asp-controller="Citizen" asp-action="Dashboard">
+                                <i class="bi bi-speedometer2 me-1"></i>Dashboard
+                            </a>
+                        </li>
                         <li class="nav-item">
                             <a class="nav-link" asp-controller="Payment" asp-action="Index">
                                 <i class="bi bi-credit-card me-1"></i>My Payments
@@ -113,12 +98,19 @@
                                 <i class="bi bi-person me-1"></i>Profile
                             </a>
                         </li>
+                    }
+
+                    @* Notifications for any logged-in user *@
+                    @if (isLoggedIn)
+                    {
                         <li class="nav-item">
                             @{
-                                // Render a Blazor server component for notification badge. Pass UserId from Claims.
-                                var userId = User.Identity?.IsAuthenticated == true ? User.FindFirst(System.Security.Claims.ClaimTypes.NameIdentifier)?.Value : null;
+                                /* Use the MVC ViewComponent instead of Blazor component so the
+                                   layout does not depend on server-side Blazor or websocket
+                                   connectivity. The ViewComponent will render the unread
+                                   notification count without requiring Blazor. */
                             }
-                            <component type="typeof(SmartEGov.Web.Components.NotificationBadge)" render-mode="ServerPrerendered" param-UserId="@userId" />
+                            @await Component.InvokeAsync("NotificationBadge")
                         </li>
                     }
 
@@ -239,7 +231,6 @@
     <script src="~/js/app.js" asp-append-version="true"></script>
     <script src="https://unpkg.com/htmx.org@1.9.2" crossorigin="anonymous"></script>
     <script src="~/js/translation.js" asp-append-version="true"></script>
-    <script src="/_framework/blazor.server.js"></script>
     @await RenderSectionAsync("Scripts", required: false)
 </body>
 </html>
