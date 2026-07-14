@@ -167,63 +167,74 @@
                     box.style.borderColor = '#198754';
                 };
                 r.readAsDataURL(file);
-                document.getElementById('btnExtract').disabled = !frontFile && !backFile;
+                document.getElementById('btnExtract').disabled = !frontFile || !backFile;
             }
         }
 
-        setupBox('frontBox','frontFile','frontPreview','frontImg', f => frontFile=f);
-        setupBox('backBox', 'backFile', 'backPreview', 'backImg',  f => backFile=f);
+                setupBox('frontBox','frontFile','frontPreview','frontImg', f => {
+            if (backFile && f.name === backFile.name && f.size === backFile.size) {
+                showMsg('warning', 'This image is already used as Back of ID. Please upload a different photo.');
+                return;
+            }
+            frontFile = f;
+        });
 
-        document.getElementById('btnExtract').addEventListener('click', async () => {
+        setupBox('backBox', 'backFile', 'backPreview', 'backImg', f => {
+            if (frontFile && f.name === frontFile.name && f.size === frontFile.size) {
+                showMsg('warning', 'This image is already used as Front of ID. Please upload a different photo.');
+                return;
+            }
+            backFile = f;
+        });
+
+                       document.getElementById('btnExtract').addEventListener('click', async () => {
             document.getElementById('ocrSpinner').classList.remove('d-none');
             document.getElementById('ocrMsg').classList.add('d-none');
 
             const token = document.querySelector('input[name="__RequestVerificationToken"]')?.value ?? '';
-            let result = {};
 
-            // Send front first — gets National ID number
-            if (frontFile) {
-                const fd = new FormData();
-                fd.append('DocumentType', 'NationalID');
-                fd.append('__RequestVerificationToken', token);
-                fd.append('IdImage', frontFile, 'front.jpg');
-                const res = await fetch('/AutoFill/UploadId', { method: 'POST', body: fd });
-                if (res.ok) result = await res.json();
-            }
+            try {
+                // Run front and back OCR in parallel
+                const requests = [];
 
-            // Send back second — gets date + address
-            if (backFile) {
-                const fd = new FormData();
-                fd.append('DocumentType', 'NationalID');
-                fd.append('__RequestVerificationToken', token);
-                fd.append('IdImage', backFile, 'back.jpg');
-                const res = await fetch('/AutoFill/UploadId', { method: 'POST', body: fd });
-                if (res.ok) {
-                    const backData = await res.json();
-                    if (!result.village   && backData.village)   result.village   = backData.village;
-                    if (!result.district  && backData.district)  result.district  = backData.district;
-                    if (!result.province  && backData.province)  result.province  = backData.province;
-                    if (!result.dateOfBirth && backData.dateOfBirth) result.dateOfBirth = backData.dateOfBirth;
+                if (frontFile) {
+                    const fd = new FormData();
+                    fd.append('DocumentType', 'NationalID');
+                    fd.append('__RequestVerificationToken', token);
+                    fd.append('IdImage', frontFile, 'front.jpg');
+                    requests.push(fetch('/AutoFill/UploadId', { method: 'POST', body: fd }));
                 }
+
+                if (backFile) {
+                    const fd = new FormData();
+                    fd.append('DocumentType', 'NationalID');
+                    fd.append('__RequestVerificationToken', token);
+                    fd.append('IdImage', backFile, 'back.jpg');
+                    requests.push(fetch('/AutoFill/UploadId', { method: 'POST', body: fd }));
+                }
+
+                const responses = await Promise.all(requests);
+                const results = await Promise.all(responses.map(r => r.ok ? r.json() : {}));
+
+                // Merge results
+                const frontData = frontFile ? results[0] : {};
+                const backData  = backFile  ? results[frontFile ? 1 : 0] : {};
+
+                // Fill fields
+                fill('fNationalId', frontData.documentNumberMasked || '');
+                fill('fDob',        backData.dateOfBirth?.substring(0, 10) || frontData.dateOfBirth?.substring(0, 10));
+                const addr = [backData.village, backData.district, backData.province].filter(Boolean).join(', ');
+                if (addr) fill('fAddress', addr);
+
+                const hasData = frontData.documentNumberMasked || backData.district || backData.dateOfBirth;
+                showMsg(hasData ? 'success' : 'info',
+                    hasData ? 'Fields auto-filled! Please review before saving.'
+                            : 'Could not auto-read fields. Please fill in manually.');
+            } catch {
+                showMsg('warning', 'Could not read ID. Please fill in the fields manually.');
+            } finally {
+                document.getElementById('ocrSpinner').classList.add('d-none');
             }
-
-            document.getElementById('ocrSpinner').classList.add('d-none');
-
-            // Fill National ID only (NOT first/last name — those come from registration)
-            fill('fNationalId', result.documentNumberMasked || '');
-
-            // Fill date of birth
-            fill('fDob', result.dateOfBirth?.substring(0, 10));
-
-            // Build address from location fields
-            const addr = [result.village, result.district, result.province].filter(Boolean).join(', ');
-            if (addr) fill('fAddress', addr);
-
-            const hasData = result.documentNumberMasked || result.dateOfBirth || result.village;
-            showMsg(hasData ? 'success' : 'info',
-                hasData
-                    ? 'Fields auto-filled from your ID! Please review before saving.'
-                    : 'Could not auto-read fields. Please fill in manually.');
         });
 
         function fill(id, val) {
@@ -240,4 +251,4 @@
     </script>
 }
 
-}
+

@@ -100,50 +100,14 @@ builder.Services.AddHsts(options =>
     options.MaxAge = TimeSpan.FromDays(365);
 });
 
-builder.Services.AddControllersWithViews();
-
-// Performance, resilience and scalability
-// Response compression (gzip/brotli) to reduce bandwidth and improve client latency
-builder.Services.AddResponseCompression(options =>
-{
-    options.EnableForHttps = true;
-    options.Providers.Add<BrotliCompressionProvider>();
-    options.Providers.Add<GzipCompressionProvider>();
-    options.MimeTypes = ResponseCompressionDefaults.MimeTypes.Concat(new[] { "application/json" });
-});
-builder.Services.Configure<BrotliCompressionProviderOptions>(opt => opt.Level = System.IO.Compression.CompressionLevel.Fastest);
-builder.Services.Configure<GzipCompressionProviderOptions>(opt => opt.Level = System.IO.Compression.CompressionLevel.Fastest);
-
-// In-memory caches to reduce DB pressure. For production, replace with Redis/Distributed cache.
-builder.Services.AddMemoryCache();
-builder.Services.AddDistributedMemoryCache();
-
-// Data protection - persist keys to disk so deployed instances can share keys (replace with Redis/Azure Blob in production)
-builder.Services.AddDataProtection()
-    .SetApplicationName("SmartEGov")
-    .PersistKeysToFileSystem(new DirectoryInfo(Path.Combine(builder.Environment.ContentRootPath, "keys")));
-
-// Health checks (useful for load balancers / orchestrators)
-builder.Services.AddHealthChecks();
-
-// Simple rate limiting to protect against spikes and abusive clients.
-// Tune PermitLimit/Window/QueueLimit based on expected traffic and capacity.
-builder.Services.AddRateLimiter(options =>
-{
-    options.RejectionStatusCode = 429;
-    options.GlobalLimiter = PartitionedRateLimiter.Create<HttpContext, string>(httpContext =>
+builder.Services.AddControllersWithViews()
+    .AddViewLocalization()
+    .AddDataAnnotationsLocalization(options =>
     {
-        // Partition by remote IP (best-effort). Adjust partitioning as needed (API key, user id, etc.).
-        var ip = httpContext.Connection.RemoteIpAddress?.ToString() ?? "unknown";
-        return RateLimitPartition.GetFixedWindowLimiter(ip, _ => new FixedWindowRateLimiterOptions
-        {
-            PermitLimit = 100, // requests per window per IP - tune this
-            Window = TimeSpan.FromSeconds(1),
-            QueueProcessingOrder = QueueProcessingOrder.OldestFirst,
-            QueueLimit = 50
-        });
+        options.DataAnnotationLocalizerProvider = (type, factory) =>
+            factory.Create(typeof(SmartEGov.Web.Resources.SharedResource));
     });
-});
+builder.Services.AddLocalization(options => options.ResourcesPath = "Resources");
 
 var app = builder.Build();
 
@@ -282,12 +246,6 @@ app.UseHttpsRedirection();
 app.UseResponseCompression();
 app.UseStaticFiles();
 app.UseRouting();
-
-// Rate limiting protects the app from abusive/spiky traffic. This should be tuned to your environment.
-app.UseRateLimiter();
-
-// Response caching - configure Cache-Control headers where appropriate in controllers/views
-app.UseResponseCaching();
 
 app.UseAuthentication();
 app.UseAuthorization();

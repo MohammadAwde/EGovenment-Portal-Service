@@ -106,9 +106,9 @@ public class AutoFillService : IAutoFillService
             var result = ParseLebanesId(ocrText, documentType);
 
             if (userId != "temp" && (
-                !string.IsNullOrEmpty(result.FirstName) ||
-                !string.IsNullOrEmpty(result.LastName) ||
-                !string.IsNullOrEmpty(result.District)))
+                !string.IsNullOrEmpty(result.District) ||
+                !string.IsNullOrEmpty(result.Province) ||
+                !string.IsNullOrEmpty(result.DocumentNumberMasked)))
             {
                 await SaveProfileAsync(new DocumentProfileDto
                 {
@@ -159,7 +159,7 @@ public class AutoFillService : IAutoFillService
         await _unitOfWork.SaveChangesAsync();
     }
 
-    // ── OCR.space API ────────────────────────────────────────────────────────
+    // ── OCR.space API — single call ──────────────────────────────────────────
 
     private async Task<string> RunOcrAsync(string imagePath)
     {
@@ -171,12 +171,11 @@ public class AutoFillService : IAutoFillService
 
             var imageBytes = await System.IO.File.ReadAllBytesAsync(imagePath);
             var imageContent = new ByteArrayContent(imageBytes);
-            var ext = Path.GetExtension(imagePath).ToLowerInvariant();
             imageContent.Headers.ContentType =
-                new System.Net.Http.Headers.MediaTypeHeaderValue(
-                    ext == ".png" ? "image/png" : "image/jpeg");
+                new System.Net.Http.Headers.MediaTypeHeaderValue("image/jpeg");
 
-            form.Add(imageContent, "file", "id" + ext);
+            form.Add(imageContent, "file", "id.jpg");
+            form.Add(new StringContent("jpg"), "filetype");
             form.Add(new StringContent("ara"), "language");
             form.Add(new StringContent("false"), "isOverlayRequired");
             form.Add(new StringContent("true"), "detectOrientation");
@@ -218,7 +217,6 @@ public class AutoFillService : IAutoFillService
             ExtractionMethod = "OCR"
         };
 
-        // Convert Arabic-Indic numerals to Western digits
         text = ConvertArabicNumerals(text);
 
         var lines = text
@@ -227,47 +225,33 @@ public class AutoFillService : IAutoFillService
             .Where(l => l.Length > 1)
             .ToArray();
 
-        // ── MRZ first (back of card) ───────────────────────────────────────
+        // ── MRZ first ─────────────────────────────────────────────────────
         var mrzLines = lines
             .Where(l => Regex.IsMatch(l, @"^[A-Z0-9<]{28,30}$"))
             .ToArray();
         if (mrzLines.Length >= 2)
             ParseMrz(mrzLines, result);
 
-        // ── Line-by-line parsing ───────────────────────────────────────────
+        // ── Line-by-line ──────────────────────────────────────────────────
         foreach (var line in lines)
         {
-            // ── Province: "المحافظة جبل لبنان" ────────────────────────────
-            if (string.IsNullOrEmpty(result.Province) &&
-                line.Contains("المحافظة"))
+            // Province
+            if (string.IsNullOrEmpty(result.Province) && line.Contains("المحافظة"))
             {
                 var val = line.Replace("المحافظة", "").Replace(":", "").Trim();
                 if (!string.IsNullOrEmpty(val)) result.Province = val;
-                else
-                {
-                    var p = LebanesProvinces.FirstOrDefault(
-                        x => line.Contains(x, StringComparison.OrdinalIgnoreCase));
-                    if (p != null) result.Province = p;
-                }
                 continue;
             }
 
-            // ── District: "القضاء كسروان" ──────────────────────────────────
-            if (string.IsNullOrEmpty(result.District) &&
-                line.Contains("القضاء"))
+            // District
+            if (string.IsNullOrEmpty(result.District) && line.Contains("القضاء"))
             {
                 var val = line.Replace("القضاء", "").Replace(":", "").Trim();
                 if (!string.IsNullOrEmpty(val)) result.District = val;
-                else
-                {
-                    var d = LebaneseDistricts.FirstOrDefault(
-                        x => line.Contains(x, StringComparison.OrdinalIgnoreCase));
-                    if (d != null) result.District = d;
-                }
                 continue;
             }
 
-            // ── Village: "المحلة أو القرية : دوق مصبح" ────────────────────
+            // Village
             if (string.IsNullOrEmpty(result.Village) &&
                 (line.Contains("المحلة") || line.Contains("القرية")))
             {
@@ -277,17 +261,7 @@ public class AutoFillService : IAutoFillService
                 continue;
             }
 
-            // ── Registry number: "رقم السجل" then next line has number ─────
-            if (string.IsNullOrEmpty(result.RegistryNumber) &&
-                line.Contains("رقم السجل"))
-            {
-                var nm = Regex.Match(line, @"\d{4,8}");
-                if (nm.Success) result.RegistryNumber = nm.Value;
-                // number may be on next line — handled below
-                continue;
-            }
-
-            // ── 12-digit ID number ─────────────────────────────────────────────────
+            // 12-digit ID number
             if (string.IsNullOrEmpty(result.DocumentNumberMasked) &&
                 Regex.IsMatch(line.Trim(), @"^\d{12}$"))
             {
@@ -295,175 +269,57 @@ public class AutoFillService : IAutoFillService
                 continue;
             }
 
-            // ── Standalone registry number ─────────────────────────────────────────
-            if (string.IsNullOrEmpty(result.RegistryNumber) &&
-                Regex.IsMatch(line.Trim(), @"^\d{4,8}$"))
+            // Registry number
+            if (string.IsNullOrEmpty(result.RegistryNumber))
             {
-                result.RegistryNumber = line.Trim();
-                continue;
-            }
-
-            // ── Date: "تاريخ الإصدار: 1998/10/28" or "تاريخ الولادة: ..." ─
-            if (result.DateOfBirth == default &&
-                (line.Contains("تاريخ الولادة") || line.Contains("الولادة")))
-            {
-                var dm = Regex.Match(line, @"(\d{4})[\/\-\.](\d{1,2})[\/\-\.](\d{1,2})");
-                if (!dm.Success)
-                    dm = Regex.Match(line, @"(\d{1,2})[\/\-\.](\d{1,2})[\/\-\.](\d{4})");
-                if (dm.Success)
+                if (Regex.IsMatch(line.Trim(), @"^\d{4,8}$"))
                 {
-                    TryParseDate(dm, out var dob);
-                    if (dob != default) result.DateOfBirth = dob;
+                    result.RegistryNumber = line.Trim();
+                    continue;
                 }
-                continue;
+                if (line.Contains("رقم السجل") || line.Contains("السجل"))
+                {
+                    var nm = Regex.Match(line, @"\d{4,8}");
+                    if (nm.Success) { result.RegistryNumber = nm.Value; continue; }
+                }
             }
 
-            // ── Fallback date anywhere in line ─────────────────────────────
+            // Date yyyy/MM/dd
             if (result.DateOfBirth == default)
             {
-                var dm = Regex.Match(line,
-                    @"(\d{4})[\/\-\.](\d{1,2})[\/\-\.](\d{1,2})");
-                if (dm.Success)
+                var dm = Regex.Match(line, @"(\d{4})[\/\-\.](\d{1,2})[\/\-\.](\d{1,2})");
+                if (dm.Success && int.TryParse(dm.Groups[1].Value, out var y) && y > 1900 && y < 2010)
                 {
-                    TryParseDate(dm, out var dob);
-                    if (dob != default && dob.Year > 1900 && dob.Year < 2010)
-                    {
-                        result.DateOfBirth = dob;
-                        continue;
-                    }
+                    try { result.DateOfBirth = new DateTime(y, int.Parse(dm.Groups[2].Value), int.Parse(dm.Groups[3].Value)); } catch { }
+                    if (result.DateOfBirth != default) continue;
+                }
+                // Date dd/MM/yyyy
+                var dm2 = Regex.Match(line, @"(\d{1,2})[\/\-\.](\d{1,2})[\/\-\.](\d{4})");
+                if (dm2.Success && int.TryParse(dm2.Groups[3].Value, out var y2) && y2 > 1900 && y2 < 2010)
+                {
+                    try { result.DateOfBirth = new DateTime(y2, int.Parse(dm2.Groups[2].Value), int.Parse(dm2.Groups[1].Value)); } catch { }
+                    if (result.DateOfBirth != default) continue;
                 }
             }
 
-            // ── Province/District fallback (no label) ──────────────────────
+            // Province fallback
             if (string.IsNullOrEmpty(result.Province))
             {
                 var p = LebanesProvinces.FirstOrDefault(
                     x => line.Contains(x, StringComparison.OrdinalIgnoreCase));
                 if (p != null) { result.Province = p; continue; }
             }
+
+            // District fallback
             if (string.IsNullOrEmpty(result.District))
             {
                 var d = LebaneseDistricts.FirstOrDefault(
                     x => line.Contains(x, StringComparison.OrdinalIgnoreCase));
                 if (d != null) { result.District = d; continue; }
             }
-
-            // ── Arabic name fields ─────────────────────────────────────────
-            // Look for "اللقب : value" or "الاسم : value" patterns
-            if (string.IsNullOrEmpty(result.LastName) &&
-                line.Contains("اللقب"))
-            {
-                var val = ExtractAfterColon(line);
-                if (!string.IsNullOrEmpty(val)) { result.LastName = val; continue; }
-            }
-            if (string.IsNullOrEmpty(result.FirstName) &&
-                (line.Contains("الاسم") && !line.Contains("اسم الأب") && !line.Contains("اسم الأم")))
-            {
-                var val = ExtractAfterColon(line);
-                if (!string.IsNullOrEmpty(val)) { result.FirstName = val; continue; }
-            }
-            if (string.IsNullOrEmpty(result.FatherName) &&
-                line.Contains("اسم الأب"))
-            {
-                var val = ExtractAfterColon(line);
-                if (!string.IsNullOrEmpty(val)) { result.FatherName = val; continue; }
-            }
-            if (string.IsNullOrEmpty(result.MotherName) &&
-                line.Contains("اسم الأم"))
-            {
-                var val = ExtractAfterColon(line);
-                if (!string.IsNullOrEmpty(val)) { result.MotherName = val; continue; }
-            }
-        }
-
-        // ── Fallback: pure Arabic lines for names if not found via labels ──
-        if (string.IsNullOrEmpty(result.LastName) &&
-            string.IsNullOrEmpty(result.FirstName))
-        {
-            var nameLines = lines
-                .Where(l => l.Any(IsArabic) &&
-                            !l.Any(char.IsDigit) &&
-                            !l.Contains(':') &&
-                            !l.Contains('،') &&
-                            l.Split(' ').Length >= 2 &&
-                            l.Split(' ').Length <= 4 &&
-                            !IsKnownLabel(l))
-                .ToArray();
-
-            if (nameLines.Length > 0) result.LastName = nameLines[0];
-            if (nameLines.Length > 1) result.FirstName = nameLines[1];
-            if (nameLines.Length > 2) result.FatherName = nameLines[2];
-            if (nameLines.Length > 3) result.MotherName = nameLines[3];
         }
 
         return result;
-    }
-
-    private static string ExtractAfterColon(string line)
-    {
-        var idx = line.IndexOf(':');
-        if (idx >= 0 && idx < line.Length - 1)
-        {
-            var val = line[(idx + 1)..].Trim();
-            if (val.Any(IsArabic) && !IsKnownLabel(val))
-                return val;
-        }
-        return string.Empty;
-    }
-
-    private static bool IsKnownLabel(string line)
-    {
-        var labels = new[]
-        {
-            "الجنس", "الوضع العائلي", "محل الولادة", "تاريخ الولادة",
-            "رقم السجل", "القضاء", "المحافظة", "البلدة", "المحلة",
-            "الجمهورية اللبنانية", "وزارة الداخلية", "تاريخ الإصدار",
-            "ذكر", "أنثى", "أعزب", "متزوج", "مطلق", "أرمل",
-            "القرية", "مأمور النفوس", "توقيع", "ختم", "النفوس",
-            "المختار", "السجل المدني", "اسم و توقيع", "مكانتور"
-        };
-        return labels.Any(k => line.Contains(k, StringComparison.OrdinalIgnoreCase));
-    }
-
-    private static bool TryParseDate(Match m, out DateTime date)
-    {
-        date = default;
-        try
-        {
-            // Try yyyy/MM/dd
-            if (int.TryParse(m.Groups[1].Value, out var y) && y > 1900)
-            {
-                date = new DateTime(y,
-                    int.Parse(m.Groups[2].Value),
-                    int.Parse(m.Groups[3].Value));
-                return true;
-            }
-            // Try dd/MM/yyyy
-            if (int.TryParse(m.Groups[3].Value, out y) && y > 1900)
-            {
-                date = new DateTime(y,
-                    int.Parse(m.Groups[2].Value),
-                    int.Parse(m.Groups[1].Value));
-                return true;
-            }
-        }
-        catch { }
-        return false;
-    }
-
-    private static string ConvertArabicNumerals(string text)
-    {
-        return text
-            .Replace('۰', '0').Replace('٠', '0')
-            .Replace('۱', '1').Replace('١', '1')
-            .Replace('۲', '2').Replace('٢', '2')
-            .Replace('۳', '3').Replace('٣', '3')
-            .Replace('۴', '4').Replace('٤', '4')
-            .Replace('۵', '5').Replace('٥', '5')
-            .Replace('۶', '6').Replace('٦', '6')
-            .Replace('۷', '7').Replace('٧', '7')
-            .Replace('۸', '8').Replace('٨', '8')
-            .Replace('۹', '9').Replace('٩', '9');
     }
 
     private static void ParseMrz(string[] mrzLines, AutoFillResultDto result)
@@ -489,19 +345,20 @@ public class AutoFillService : IAutoFillService
             }
         }
 
-        var namePart = line1.Length > 5 ? line1[5..] : line1;
-        var sections = namePart.Split("<<", 2);
-        if (sections.Length >= 1 && string.IsNullOrEmpty(result.LastName))
-            result.LastName = sections[0].Replace("<", " ").Trim();
-        if (sections.Length >= 2 && string.IsNullOrEmpty(result.FirstName))
-        {
-            var given = sections[1].Split('<', StringSplitOptions.RemoveEmptyEntries);
-            if (given.Length >= 1) result.FirstName = given[0].Trim();
-            if (given.Length >= 2) result.FatherName = given[1].Trim();
-        }
-
         result.ExtractionMethod = "MRZ";
     }
+
+    private static string ConvertArabicNumerals(string text) =>
+        text.Replace('۰', '0').Replace('٠', '0')
+            .Replace('۱', '1').Replace('١', '1')
+            .Replace('۲', '2').Replace('٢', '2')
+            .Replace('۳', '3').Replace('٣', '3')
+            .Replace('۴', '4').Replace('٤', '4')
+            .Replace('۵', '5').Replace('٥', '5')
+            .Replace('۶', '6').Replace('٦', '6')
+            .Replace('۷', '7').Replace('٧', '7')
+            .Replace('۸', '8').Replace('٨', '8')
+            .Replace('۹', '9').Replace('٩', '9');
 
     // ── Encryption (AES-256) ─────────────────────────────────────────────────
 

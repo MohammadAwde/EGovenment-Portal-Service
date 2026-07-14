@@ -28,7 +28,7 @@ public class SecurityHeadersMiddleware
             "style-src 'self' 'unsafe-inline' https://cdn.jsdelivr.net https://cdnjs.cloudflare.com https://unpkg.com; " +
             "img-src 'self' data: https: https://*.tile.openstreetmap.org https://raw.githubusercontent.com; " +
             "font-src 'self' https://cdn.jsdelivr.net data:; " +
-            "connect-src 'self' https://api.stripe.com https://hooks.stripe.com https://pay.google.com https://google.com https://*.tile.openstreetmap.org; " +
+            "connect-src 'self' https://api.stripe.com https://hooks.stripe.com https://pay.google.com https://google.com https://*.tile.openstreetmap.org https://api.mymemory.translated.net https://lingva.ml https://translate.plausibility.cloud https://lingva.garudalinux.org https://unpkg.com; " +
             "manifest-src 'self' https://pay.google.com https://google.com; " +
             "frame-ancestors 'none';"
 );

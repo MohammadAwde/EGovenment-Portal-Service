@@ -144,13 +144,21 @@ a:focus {
 
 /* ========== Top Bar ========== */
 .lb-topbar {
-  background: var(--lb-green-dark);
-  color: rgba(255, 255, 255, .85);
-  font-size: 0.8rem;
-  padding: var(--lb-space-sm) 0;
-  letter-spacing: 0.02em;
-  line-height: 1.4;
+    background: white;
+    color: #333;
+    padding: 4px 0;
+    font-size: 0.78rem;
+    border-bottom: 2px solid var(--lb-gold);
 }
+
+.lb-topbar a {
+        color: #333 !important;
+        text-decoration: none;
+    }
+
+.lb-topbar span {
+        color: #333 !important;
+    }
 
 .lb-topbar a {
   color: var(--lb-gold);

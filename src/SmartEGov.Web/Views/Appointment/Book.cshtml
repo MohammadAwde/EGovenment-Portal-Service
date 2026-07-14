@@ -85,7 +85,7 @@
                             <label class="form-label fw-semibold">Appointment Date</label>
                             <input asp-for="AppointmentDate" type="date" id="apptDate" class="form-control"
                                    min="@DateTime.Today.AddDays(1).ToString("yyyy-MM-dd")" />
-                            <small class="text-muted">Appointments available Monday to Thursday only.</small>
+                            <small class="text-muted">Appointments available Monday to Friday (Friday: morning only until 12:00). No appointments on weekends.</small>
                             <span asp-validation-for="AppointmentDate" class="text-danger small"></span>
                         </div>
 
@@ -280,11 +280,11 @@
             if (!selectedCenterId || !date) return;
 
             const dayOfWeek = new Date(date).getDay();
-            if (dayOfWeek === 5 || dayOfWeek === 6) {
-                document.getElementById('slotGrid').innerHTML =
-                    '<p class="text-warning small">No appointments on Fridays and Saturdays. Please choose a weekday (Mon–Thu).</p>';
-                return;
-            }
+             if (dayOfWeek === 0 || dayOfWeek === 6) {
+            document.getElementById('slotGrid').innerHTML =
+                '<p class="text-warning small">No appointments on weekends. Please choose a weekday (Mon–Fri).</p>';
+            return;
+        }
 
             const grid = document.getElementById('slotGrid');
             grid.innerHTML = '<span class="text-muted small"><div class="spinner-border spinner-border-sm me-1"></div>Loading slots…</span>';

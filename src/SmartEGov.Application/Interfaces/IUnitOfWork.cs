@@ -15,5 +15,6 @@ public interface IUnitOfWork : IDisposable
     IAppointmentRepository Appointments { get; }
     IServiceCenterRepository ServiceCenters { get; }
     IDocumentProfileRepository DocumentProfiles { get; }
+    IPublicHolidayRepository PublicHolidays { get; }
     Task<int> SaveChangesAsync();
 }

@@ -73,13 +73,21 @@ public class AppointmentService : IAppointmentService
 
     public async Task<IEnumerable<string>> GetAvailableSlotsAsync(int serviceCenterId, DateTime date)
     {
-        if (date.DayOfWeek is DayOfWeek.Friday or DayOfWeek.Saturday)
+        if (date.DayOfWeek is DayOfWeek.Saturday or DayOfWeek.Sunday)
             return [];
+
+        var isHoliday = await _unitOfWork.PublicHolidays.IsHolidayAsync(date);
+        if (isHoliday) return [];
+
+        // Friday — morning only (before 12:00)
+        var slots = date.DayOfWeek == DayOfWeek.Friday
+            ? AllSlots.Where(s => s.StartsWith("09") || s.StartsWith("10") || s.StartsWith("11"))
+            : AllSlots;
 
         var booked = (await _appointments.GetByCenterAndDateAsync(serviceCenterId, date))
             .Select(a => a.TimeSlot).ToHashSet();
 
-        return AllSlots.Where(s => !booked.Contains(s)).ToList();
+        return slots.Where(s => !booked.Contains(s)).ToList();
     }
 
     public async Task<AppointmentDto> BookAsync(BookAppointmentRequest request, string userId)
