@@ -30,6 +30,12 @@ public class NotificationController : Controller
     public async Task<IActionResult> MarkAsRead(int id)
     {
         await _notificationService.MarkAsReadAsync(id);
+        // If the request was made by htmx, return 204 No Content so the client can remove the element
+        if (Request.Headers.TryGetValue("HX-Request", out var vals) && vals.Count > 0 && vals[0] == "true")
+        {
+            return NoContent();
+        }
+
         return RedirectToAction("Index");
     }
 

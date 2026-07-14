@@ -114,25 +114,11 @@
                             </a>
                         </li>
                         <li class="nav-item">
-                            <a class="nav-link" asp-controller="Notification" asp-action="Index">
-                                <i class="bi bi-bell me-1"></i>Notifications
-                                @{
-                                    var unreadCount = ViewBag.UnreadNotificationCount as int?;
-                                }
-                                @if (unreadCount.HasValue && unreadCount > 0)
-                                {
-                                    <span class="badge bg-danger rounded-pill ms-1">@unreadCount</span>
-                                }
-                                else
-                                {
-                                    <span class="badge bg-secondary rounded-pill ms-1" id="notifBadge"
-                                          hx-get="/Notification/UnreadCount"
-                                          hx-trigger="load, every 30s"
-                                          hx-swap="innerHTML">
-                                        <span class="spinner-border spinner-border-sm" style="width:.6rem;height:.6rem;"></span>
-                                    </span>
-                                }
-                            </a>
+                            @{
+                                // Render a Blazor server component for notification badge. Pass UserId from Claims.
+                                var userId = User.Identity?.IsAuthenticated == true ? User.FindFirst(System.Security.Claims.ClaimTypes.NameIdentifier)?.Value : null;
+                            }
+                            <component type="typeof(SmartEGov.Web.Components.NotificationBadge)" render-mode="ServerPrerendered" param-UserId="@userId" />
                         </li>
                     }
 
@@ -253,6 +239,7 @@
     <script src="~/js/app.js" asp-append-version="true"></script>
     <script src="https://unpkg.com/htmx.org@1.9.2" crossorigin="anonymous"></script>
     <script src="~/js/translation.js" asp-append-version="true"></script>
+    <script src="/_framework/blazor.server.js"></script>
     @await RenderSectionAsync("Scripts", required: false)
 </body>
 </html>

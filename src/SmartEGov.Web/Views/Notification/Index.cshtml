@@ -14,7 +14,7 @@
         <div class="card-body p-0">
             @foreach (var n in Model)
             {
-                <div class="lb-notification-item @(n.IsRead ? "" : "unread") d-flex justify-content-between align-items-start">
+                <div class="lb-notification-item @(n.IsRead ? "" : "unread") d-flex justify-content-between align-items-start" data-notification-id="@n.Id">
                     <div>
                         <div class="d-flex align-items-center gap-2 mb-1">
                             <i class="bi @(n.IsRead ? "bi-bell" : "bi-bell-fill text-warning")"></i>
@@ -29,7 +29,8 @@
                     </div>
                     @if (!n.IsRead)
                     {
-                        <form asp-action="MarkAsRead" method="post" class="flex-shrink-0 ms-3">
+                        <form asp-action="MarkAsRead" method="post" class="flex-shrink-0 ms-3 mark-as-read-form" data-notification-id="@n.Id">
+                            @Html.AntiForgeryToken()
                             <input type="hidden" name="id" value="@n.Id" />
                             <button type="submit" class="btn btn-sm btn-lb-primary">
                                 <i class="bi bi-check2 me-1"></i>Mark as Read

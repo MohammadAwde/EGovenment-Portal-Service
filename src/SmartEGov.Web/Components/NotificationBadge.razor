@@ -1,0 +1,61 @@
+@using SmartEGov.Application.Services
+@inject INotificationService NotificationService
+@implements IDisposable
+
+@code {
+    [Parameter]
+    public string? UserId { get; set; }
+
+    private int _unreadCount = 0;
+    private System.Threading.Timer? _timer;
+
+    protected override async Task OnInitializedAsync()
+    {
+        if (!string.IsNullOrEmpty(UserId))
+        {
+            await RefreshAsync();
+            // refresh every 30 seconds
+            _timer = new System.Threading.Timer(async _ =>
+            {
+                await InvokeAsync(async () => await RefreshAsync());
+            }, null, TimeSpan.FromSeconds(30), TimeSpan.FromSeconds(30));
+        }
+    }
+
+    private async Task RefreshAsync()
+    {
+        try
+        {
+            var c = await NotificationService.GetUnreadCountAsync(UserId!);
+            _unreadCount = c;
+            StateHasChanged();
+        }
+        catch
+        {
+            // ignore transient errors
+        }
+    }
+
+    public void Dispose()
+    {
+        _timer?.Dispose();
+    }
+}
+
+@if (string.IsNullOrEmpty(UserId))
+{
+    <a class="nav-link" asp-controller="Notification" asp-action="Index">
+        <i class="bi bi-bell me-1"></i> Notifications
+    </a>
+}
+else
+{
+    <a class="nav-link position-relative" href="/Notification/Index">
+        <i class="bi bi-bell me-1"></i>
+        Notifications
+        <span id="notification-unread-count" class="position-absolute top-0 start-100 translate-middle badge rounded-pill bg-danger" style="font-size:.65rem; display:@(_unreadCount > 0 ? "inline-block" : "none")">
+            @_unreadCount
+            <span class="visually-hidden">unread notifications</span>
+        </span>
+    </a>
+}

@@ -109,6 +109,9 @@ builder.Services.AddControllersWithViews()
     });
 builder.Services.AddLocalization(options => options.ResourcesPath = "Resources");
 
+// Enable Blazor Server for incremental server-side components
+builder.Services.AddServerSideBlazor();
+
 // Health checks (for /health endpoint) and response compression
 builder.Services.AddHealthChecks();
 
@@ -271,6 +274,9 @@ app.UseAuthorization();
 app.MapControllerRoute(
     name: "default",
     pattern: "{controller=Home}/{action=Index}/{id?}");
+
+// Blazor server hub for server-side components
+app.MapBlazorHub();
 
 // Health endpoint for load balancers / orchestrators
 app.MapHealthChecks("/health");
