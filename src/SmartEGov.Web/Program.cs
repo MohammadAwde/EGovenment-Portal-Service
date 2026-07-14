@@ -109,6 +109,24 @@ builder.Services.AddControllersWithViews()
     });
 builder.Services.AddLocalization(options => options.ResourcesPath = "Resources");
 
+// Health checks (for /health endpoint) and response compression
+builder.Services.AddHealthChecks();
+
+// Response compression to improve throughput
+builder.Services.AddResponseCompression(options =>
+{
+    options.EnableForHttps = true;
+    options.Providers.Add<BrotliCompressionProvider>();
+    options.Providers.Add<GzipCompressionProvider>();
+    options.MimeTypes = ResponseCompressionDefaults.MimeTypes.Concat(new[] { "application/json" });
+});
+builder.Services.Configure<BrotliCompressionProviderOptions>(opt => opt.Level = System.IO.Compression.CompressionLevel.Fastest);
+builder.Services.Configure<GzipCompressionProviderOptions>(opt => opt.Level = System.IO.Compression.CompressionLevel.Fastest);
+
+// Caching (in-memory). For multi-instance use a distributed cache like Redis.
+builder.Services.AddMemoryCache();
+builder.Services.AddDistributedMemoryCache();
+
 var app = builder.Build();
 
 // Seed roles and default Admin user

@@ -1,5 +1,6 @@
 using SmartEGov.Application.Interfaces;
 using SmartEGov.Infrastructure.Data;
+using SmartEGov.Application.Interfaces;
 
 namespace SmartEGov.Infrastructure.Repositories;
 
@@ -23,6 +24,7 @@ public class UnitOfWork : IUnitOfWork
         Appointments = new AppointmentRepository(context);
         ServiceCenters = new ServiceCenterRepository(context);
         DocumentProfiles = new DocumentProfileRepository(context);
+        PublicHolidays = new PublicHolidayRepository(context);
     }
 
     public ICitizenRepository Citizens { get; }
@@ -38,6 +40,7 @@ public class UnitOfWork : IUnitOfWork
     public IAppointmentRepository Appointments { get; }
     public IServiceCenterRepository ServiceCenters { get; }
     public IDocumentProfileRepository DocumentProfiles { get; }
+    public IPublicHolidayRepository PublicHolidays { get; }
 
     public async Task<int> SaveChangesAsync()
     {
