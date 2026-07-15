@@ -314,49 +314,128 @@ const AR = {
 
 let currentLang = localStorage.getItem('smartegov_lang') || 'en';
 
+// Build ordered keys (longer first) to prefer multi-word replacements
+const AR_KEYS = Object.keys(AR).sort((a, b) => b.length - a.length);
+
+function normalizeForCompare(s) {
+    if (!s) return '';
+    // normalize various dash characters to hyphen, collapse whitespace, lowercase
+    return s.replace(/[\u2010\u2011\u2012\u2013\u2014\u2015\u2212\-]/g, '-').replace(/\s+/g, ' ').trim().toLowerCase();
+}
+
+// Precompute normalized keys map
+const NORMALIZED_KEYS = {};
+for (let k of AR_KEYS) NORMALIZED_KEYS[k] = normalizeForCompare(k);
+
+function shouldSkipParent(parent) {
+    if (!parent) return true;
+    const tag = parent.tagName;
+    // Never translate inside these tags or code blocks
+    if (['SCRIPT', 'STYLE', 'INPUT', 'TEXTAREA', 'SELECT', 'PRE', 'CODE', 'KBD', 'SAMP', 'VAR', 'TT'].includes(tag)) return true;
+    // Skip elements that are interactive controls handled by JS (bootstrap toggles etc.)
+    if (parent.closest('[data-bs-toggle]') || parent.closest('[role="button"]') || parent.closest('a')) return false;
+    return false;
+}
+
 function applyTranslations() {
-    const walker = document.createTreeWalker(
-        document.body,
-        NodeFilter.SHOW_TEXT,
-        {
+    try {
+        const walker = document.createTreeWalker(document.body, NodeFilter.SHOW_TEXT, {
             acceptNode(node) {
                 const parent = node.parentElement;
                 if (!parent) return NodeFilter.FILTER_REJECT;
-                const tag = parent.tagName;
-                if (['SCRIPT', 'STYLE', 'INPUT', 'TEXTAREA', 'SELECT'].includes(tag))
-                    return NodeFilter.FILTER_REJECT;
+                if (shouldSkipParent(parent)) return NodeFilter.FILTER_REJECT;
                 const text = node.textContent.trim();
                 if (!text || text.length < 2) return NodeFilter.FILTER_REJECT;
                 return NodeFilter.FILTER_ACCEPT;
             }
+        });
+
+        let node = null;
+        while (node = walker.nextNode()) {
+            const original = node.textContent;
+            // Skip nodes that look like code fragments (contain braces or code comments)
+            if (/[{}`<>]/.test(original) || original.indexOf('//') !== -1) continue;
+            let translated = original;
+            // Replace known phrases inside the text (case-sensitive map)
+            for (let i = 0; i < AR_KEYS.length; i++) {
+                const key = AR_KEYS[i];
+                if (translated.indexOf(key) !== -1) {
+                    // Replace all occurrences
+                    const re = new RegExp(key.replace(/[-\/\\^$*+?.()|[\]{}]/g, '\\$&'), 'g');
+                    translated = translated.replace(re, AR[key]);
+                }
+            }
+            if (translated !== original) {
+                node.textContent = translated;
+            }
         }
-    );
 
-    let node;
-    while (node = walker.nextNode()) {
-        const text = node.textContent.trim();
-        if (AR[text]) {
-            node.textContent = node.textContent.replace(text, AR[text]);
+        // Translate attributes (placeholders, alt text, titles)
+        document.querySelectorAll('input[placeholder], textarea[placeholder]').forEach(function (el) {
+            const ph = el.getAttribute('placeholder');
+            if (ph && AR[ph]) el.setAttribute('placeholder', AR[ph]);
+        });
+        document.querySelectorAll('img[alt]').forEach(function (el) {
+            const alt = el.getAttribute('alt');
+            if (alt && AR[alt]) el.setAttribute('alt', AR[alt]);
+        });
+        document.querySelectorAll('[title]').forEach(function (el) {
+            const t = el.getAttribute('title');
+            if (t && AR[t]) el.setAttribute('title', AR[t]);
+        });
+
+        // Apply RTL and language attributes
+        document.documentElement.setAttribute('dir', 'rtl');
+        document.documentElement.setAttribute('lang', 'ar');
+        document.documentElement.style.fontFamily = "'Cairo', 'Tajawal', Tahoma, sans-serif";
+
+        // Bootstrap RTL: add once
+        if (!document.getElementById('bootstrap-rtl')) {
+            const link = document.createElement('link');
+            link.id = 'bootstrap-rtl';
+            link.rel = 'stylesheet';
+            link.href = 'https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.rtl.min.css';
+            document.head.appendChild(link);
         }
+
+        // Update button label
+        const btn = document.getElementById('langToggleBtn');
+        if (btn) btn.innerHTML = '🌐 English';
+    } catch (e) {
+        console.error('applyTranslations error', e);
     }
+}
 
-    // Apply RTL
-    document.documentElement.dir = 'rtl';
-    document.documentElement.lang = 'ar';
-    document.documentElement.style.fontFamily = "'Cairo', 'Tajawal', Tahoma, sans-serif";
+// Remove stray code-like fragments rendered accidentally (e.g. 'else { }')
+function removeStrayCodeFragments() {
+    try {
+        const walker = document.createTreeWalker(document.body, NodeFilter.SHOW_TEXT, {
+            acceptNode(node) {
+                const txt = node.textContent || '';
+                if (!txt.trim()) return NodeFilter.FILTER_REJECT;
+                // match patterns like: else { }  or else {  or } alone on a line
+                if (/^\s*else\s*\{\s*\}\s*$/i.test(txt) || /^\s*else\s*\{\s*$/i.test(txt) || /^\s*\}\s*$/i.test(txt))
+                    return NodeFilter.FILTER_ACCEPT;
+                return NodeFilter.FILTER_REJECT;
+            }
+        });
 
-    // Bootstrap RTL
-    if (!document.getElementById('bootstrap-rtl')) {
-        const link = document.createElement('link');
-        link.id = 'bootstrap-rtl';
-        link.rel = 'stylesheet';
-        link.href = 'https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.rtl.min.css';
-        document.head.appendChild(link);
+        let node;
+        const toRemove = [];
+        while (node = walker.nextNode()) {
+            // prefer removing the whole block element if sensible
+            const parent = node.parentElement;
+            if (parent && parent.childElementCount === 0) {
+                toRemove.push(parent);
+            } else if (parent) {
+                // remove the text node only
+                toRemove.push(node);
+            }
+        }
+        toRemove.forEach(n => { try { n.remove(); } catch(e){} });
+    } catch (e) {
+        // ignore
     }
-
-    // Update button
-    const btn = document.getElementById('langToggleBtn');
-    if (btn) btn.innerHTML = '🌐 English';
 }
 
 function switchLanguage() {
@@ -365,8 +444,16 @@ function switchLanguage() {
         localStorage.setItem('smartegov_lang', 'ar');
         applyTranslations();
     } else {
+        // Revert to English: reload to restore server-rendered texts and remove RTL styles
         currentLang = 'en';
         localStorage.setItem('smartegov_lang', 'en');
+        // Remove RTL stylesheet if present and restore attributes
+        const rtlLink = document.getElementById('bootstrap-rtl');
+        if (rtlLink && rtlLink.parentNode) rtlLink.parentNode.removeChild(rtlLink);
+        document.documentElement.setAttribute('dir', 'ltr');
+        document.documentElement.setAttribute('lang', 'en');
+        document.documentElement.style.fontFamily = '';
+        // Full reload ensures server-side resources and dynamic scripts are in sync
         location.reload();
     }
 }
@@ -375,4 +462,6 @@ document.addEventListener('DOMContentLoaded', () => {
     if (currentLang === 'ar') {
         applyTranslations();
     }
+    // Always remove stray code fragments that might be visible
+    removeStrayCodeFragments();
 });
