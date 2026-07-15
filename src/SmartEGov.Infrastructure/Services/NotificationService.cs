@@ -1,5 +1,7 @@
 using AutoMapper;
+using AutoMapper;
 using Microsoft.AspNetCore.Identity;
+using Microsoft.Extensions.Logging;
 using SmartEGov.Application.Interfaces;
 using SmartEGov.Application.Services;
 using SmartEGov.Domain.Entities;
@@ -9,18 +11,18 @@ namespace SmartEGov.Infrastructure.Services;
 public class NotificationService : INotificationService
 {
     private readonly IUnitOfWork _unitOfWork;
-    private readonly ISmsNotificationService _smsNotificationService;
     private readonly IEmailSender _emailSender;
     private readonly UserManager<ApplicationUser> _userManager;
     private readonly IMapper _mapper;
+    private readonly ILogger<NotificationService> _logger;
 
-    public NotificationService(IUnitOfWork unitOfWork, ISmsNotificationService smsNotificationService, IEmailSender emailSender, UserManager<ApplicationUser> userManager, IMapper mapper)
+    public NotificationService(IUnitOfWork unitOfWork, IEmailSender emailSender, UserManager<ApplicationUser> userManager, IMapper mapper, ILogger<NotificationService> logger)
     {
         _unitOfWork = unitOfWork;
-        _smsNotificationService = smsNotificationService;
         _emailSender = emailSender;
         _userManager = userManager;
         _mapper = mapper;
+        _logger = logger;
     }
 
     public async Task SendAsync(string userId, string title, string message)
@@ -37,10 +39,16 @@ public class NotificationService : INotificationService
         await _unitOfWork.SaveChangesAsync();
 
         var citizen = await _unitOfWork.Citizens.GetByUserIdAsync(userId);
-        if (citizen != null && !string.IsNullOrWhiteSpace(citizen.PhoneNumber))
+        if (citizen != null)
         {
-            var smsBody = $"{title}: {message}";
-            await _smsNotificationService.SendSmsAsync(citizen.PhoneNumber, smsBody);
+            if (!string.IsNullOrWhiteSpace(citizen.PhoneNumber))
+            {
+                _logger?.LogDebug("Citizen {UserId} has phone number {Phone}; SMS notifications removed in favor of Twilio WhatsApp sending on completion.", userId, citizen.PhoneNumber);
+            }
+            else
+            {
+                _logger?.LogInformation("No phone number for user {UserId}; skipping SMS/WhatsApp.", userId);
+            }
         }
 
         // Send email using Identity user record when available
@@ -48,7 +56,15 @@ public class NotificationService : INotificationService
         if (user != null && !string.IsNullOrWhiteSpace(user.Email))
         {
             var html = $"<p>{message}</p>";
-            await _emailSender.SendEmailAsync(user.Email, title, html);
+            try
+            {
+                _logger?.LogDebug("Attempting to send email to user {UserId} at {Email}", userId, user.Email);
+                await _emailSender.SendEmailAsync(user.Email, title, html);
+            }
+            catch (Exception ex)
+            {
+                _logger?.LogError(ex, "Failed to send email to user {UserId} at {Email}", userId, user.Email);
+            }
         }
     }
 

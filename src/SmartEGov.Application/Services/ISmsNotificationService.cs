@@ -1,6 +1,6 @@
 namespace SmartEGov.Application.Services;
 
-public class SmsSettings
+public class TwilioSettings
 {
     public string AccountSid { get; set; } = string.Empty;
     public string AuthToken { get; set; } = string.Empty;
@@ -9,9 +9,4 @@ public class SmsSettings
     public string? MessagingServiceSid { get; set; }
     // Optional default country code to normalize local phone numbers (e.g. "+961")
     public string? DefaultCountryCode { get; set; }
-}
-
-public interface ISmsNotificationService
-{
-    Task SendSmsAsync(string toPhoneNumber, string message);
 }
