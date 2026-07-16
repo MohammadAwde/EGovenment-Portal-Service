@@ -224,6 +224,19 @@ public class ServiceRequestService : IServiceRequestService
                 $"Cannot transition from '{oldStatus}' to '{status}'. Allowed transitions: {string.Join(", ", allowed)}.");
         }
 
+        // Prevent completing a request if it belongs to a service that requires approval
+        // and the workflow has not been fully approved.
+        if (status == ServiceRequestStatus.Completed.ToString())
+        {
+            var govService = await _unitOfWork.GovernmentServices.GetWithWorkflowAsync(request.GovernmentServiceId);
+            if (govService?.ApprovalWorkflowId != null)
+            {
+                var currentStep = await _workflowService.GetCurrentStepAsync(request.Id);
+                if (currentStep != null)
+                    throw new InvalidOperationException("Cannot complete this request until the approval workflow is fully approved.");
+            }
+        }
+
         request.Status = Enum.Parse<ServiceRequestStatus>(status);
 
         if (request.Status == ServiceRequestStatus.Completed)
