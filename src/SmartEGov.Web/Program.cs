@@ -166,65 +166,65 @@ try
 {
     using (var scope = app.Services.CreateScope())
     {
-                // Ensure database schema is up-to-date by applying any pending migrations
+        // Ensure database schema is up-to-date by applying any pending migrations
+        try
+        {
+            var dbForMigrations = scope.ServiceProvider.GetRequiredService<ApplicationDbContext>();
+            await dbForMigrations.Database.MigrateAsync();
+        }
+        catch (Exception ex)
+        {
+            var logger = scope.ServiceProvider.GetRequiredService<ILoggerFactory>().CreateLogger("Startup:Migrations");
+            logger.LogWarning(ex, "Automatic database migration failed. Continue startup.");
+        }
+        // Ensure Stripe columns exist in Payments table when running in Development
+        try
+        {
+            var env = scope.ServiceProvider.GetRequiredService<IHostEnvironment>();
+            if (env.IsDevelopment())
+            {
+                var logger = scope.ServiceProvider.GetRequiredService<ILoggerFactory>().CreateLogger("Startup:StripeColumns");
+                var appDb = scope.ServiceProvider.GetRequiredService<ApplicationDbContext>();
+                var conn = appDb.Database.GetDbConnection();
+                await conn.OpenAsync();
                 try
                 {
-                    var dbForMigrations = scope.ServiceProvider.GetRequiredService<ApplicationDbContext>();
-                    await dbForMigrations.Database.MigrateAsync();
-                }
-                catch (Exception ex)
-                {
-                    var logger = scope.ServiceProvider.GetRequiredService<ILoggerFactory>().CreateLogger("Startup:Migrations");
-                    logger.LogWarning(ex, "Automatic database migration failed. Continue startup.");
-                }
-                // Ensure Stripe columns exist in Payments table when running in Development
-                try
-                {
-                    var env = scope.ServiceProvider.GetRequiredService<IHostEnvironment>();
-                    if (env.IsDevelopment())
+                    using var cmd = conn.CreateCommand();
+                    cmd.CommandText = "SELECT COUNT(*) FROM INFORMATION_SCHEMA.COLUMNS WHERE TABLE_NAME = 'Payments' AND COLUMN_NAME = 'StripePaymentIntentId'";
+                    var result = await cmd.ExecuteScalarAsync();
+                    var hasPi = Convert.ToInt32(result) > 0;
+
+                    cmd.CommandText = "SELECT COUNT(*) FROM INFORMATION_SCHEMA.COLUMNS WHERE TABLE_NAME = 'Payments' AND COLUMN_NAME = 'StripeSessionId'";
+                    result = await cmd.ExecuteScalarAsync();
+                    var hasSession = Convert.ToInt32(result) > 0;
+
+                    if (!hasPi)
                     {
-                        var logger = scope.ServiceProvider.GetRequiredService<ILoggerFactory>().CreateLogger("Startup:StripeColumns");
-                        var appDb = scope.ServiceProvider.GetRequiredService<ApplicationDbContext>();
-                        var conn = appDb.Database.GetDbConnection();
-                        await conn.OpenAsync();
-                        try
-                        {
-                            using var cmd = conn.CreateCommand();
-                            cmd.CommandText = "SELECT COUNT(*) FROM INFORMATION_SCHEMA.COLUMNS WHERE TABLE_NAME = 'Payments' AND COLUMN_NAME = 'StripePaymentIntentId'";
-                            var result = await cmd.ExecuteScalarAsync();
-                            var hasPi = Convert.ToInt32(result) > 0;
+                        logger.LogInformation("Adding missing column StripePaymentIntentId to Payments table (development automatic fix).");
+                        using var a = conn.CreateCommand();
+                        a.CommandText = "ALTER TABLE Payments ADD StripePaymentIntentId nvarchar(max) NULL;";
+                        await a.ExecuteNonQueryAsync();
+                    }
 
-                            cmd.CommandText = "SELECT COUNT(*) FROM INFORMATION_SCHEMA.COLUMNS WHERE TABLE_NAME = 'Payments' AND COLUMN_NAME = 'StripeSessionId'";
-                            result = await cmd.ExecuteScalarAsync();
-                            var hasSession = Convert.ToInt32(result) > 0;
-
-                            if (!hasPi)
-                            {
-                                logger.LogInformation("Adding missing column StripePaymentIntentId to Payments table (development automatic fix).");
-                                using var a = conn.CreateCommand();
-                                a.CommandText = "ALTER TABLE Payments ADD StripePaymentIntentId nvarchar(max) NULL;";
-                                await a.ExecuteNonQueryAsync();
-                            }
-
-                            if (!hasSession)
-                            {
-                                logger.LogInformation("Adding missing column StripeSessionId to Payments table (development automatic fix).");
-                                using var b = conn.CreateCommand();
-                                b.CommandText = "ALTER TABLE Payments ADD StripeSessionId nvarchar(max) NULL;";
-                                await b.ExecuteNonQueryAsync();
-                            }
-                        }
-                        finally
-                        {
-                            await conn.CloseAsync();
-                        }
+                    if (!hasSession)
+                    {
+                        logger.LogInformation("Adding missing column StripeSessionId to Payments table (development automatic fix).");
+                        using var b = conn.CreateCommand();
+                        b.CommandText = "ALTER TABLE Payments ADD StripeSessionId nvarchar(max) NULL;";
+                        await b.ExecuteNonQueryAsync();
                     }
                 }
-                catch (Exception ex)
+                finally
                 {
-                    var logger = scope.ServiceProvider.GetRequiredService<ILoggerFactory>().CreateLogger("Startup:StripeColumns");
-                    logger.LogWarning(ex, "Automatic check/creation of Stripe columns failed. Continue startup.");
+                    await conn.CloseAsync();
                 }
+            }
+        }
+        catch (Exception ex)
+        {
+            var logger = scope.ServiceProvider.GetRequiredService<ILoggerFactory>().CreateLogger("Startup:StripeColumns");
+            logger.LogWarning(ex, "Automatic check/creation of Stripe columns failed. Continue startup.");
+        }
 
         var roleManager = scope.ServiceProvider.GetRequiredService<RoleManager<IdentityRole>>();
         string[] roles = { "Admin", "Officer", "Citizen" };
