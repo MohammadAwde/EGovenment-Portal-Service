@@ -35,6 +35,33 @@
             </button>
         </form>
         <div class="text-center mt-3">
+            <div class="border-top pt-3">
+                <p class="small text-muted">Or sign in with</p>
+                @{ var cfg = Context.RequestServices.GetService(typeof(Microsoft.Extensions.Configuration.IConfiguration)) as Microsoft.Extensions.Configuration.IConfiguration; }
+                @if (!string.IsNullOrWhiteSpace(cfg?["Authentication:Google:ClientId"]))
+                {
+                    <form asp-action="ExternalLogin" method="post" class="d-inline">
+                        <input type="hidden" name="provider" value="Google" />
+                        <input type="hidden" name="returnUrl" value="@ViewData["ReturnUrl"]" />
+                        <button type="submit" class="btn btn-outline-secondary me-2">
+                            <i class="bi bi-google"></i> Google
+                        </button>
+                    </form>
+                }
+                @* Apple sign-in button shown if configured *@
+                @if (!string.IsNullOrWhiteSpace(cfg?["Authentication:Apple:ClientId"]))
+                {
+                    <form asp-action="ExternalLogin" method="post" class="d-inline">
+                        <input type="hidden" name="provider" value="Apple" />
+                        <input type="hidden" name="returnUrl" value="@ViewData["ReturnUrl"]" />
+                        <button type="submit" class="btn btn-outline-secondary">
+                            <i class="bi bi-apple"></i> Sign in with Apple
+                        </button>
+                    </form>
+                }
+            </div>
+        </div>
+        <div class="text-center mt-3">
             <span class="text-muted small">Don't have an account?</span>
             <a asp-action="Register" class="small fw-semibold">Create one</a>
         </div>

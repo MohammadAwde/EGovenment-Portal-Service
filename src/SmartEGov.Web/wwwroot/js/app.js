@@ -126,6 +126,34 @@
     });
   }
 
+  // Dark mode toggle
+  function initDarkMode() {
+    var toggle = document.getElementById('toggleDarkMode');
+    if (!toggle) return;
+    function apply(isDark) {
+      if (isDark) document.body.classList.add('dark-theme'); else document.body.classList.remove('dark-theme');
+      var icon = toggle.querySelector('i');
+      if (icon) icon.className = isDark ? 'bi bi-sun-fill' : 'bi bi-moon-fill';
+      try { localStorage.setItem('smartegov:dark', isDark ? '1' : '0'); } catch(e){}
+    }
+    // initial state
+    try {
+      var stored = localStorage.getItem('smartegov:dark');
+      if (stored === null) {
+        // follow system preference
+        var prefers = window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches;
+        apply(prefers);
+      } else {
+        apply(stored === '1');
+      }
+    } catch(e) { apply(false); }
+
+    toggle.addEventListener('click', function () {
+      var isDark = document.body.classList.contains('dark-theme');
+      apply(!isDark);
+    });
+  }
+
   function init() {
     initScrollToTop();
     animateCounters();
@@ -135,11 +163,78 @@
     initFormLoadingStates();
     initCardAnimations();
     initTooltips();
+    initDarkMode();
+    initNotificationHandlers();
   }
 
   if (document.readyState === "loading") {
     document.addEventListener("DOMContentLoaded", init);
   } else {
     init();
+  }
+
+  // Notification handlers: intercept mark-as-read forms and submit via fetch to avoid full reloads
+  function initNotificationHandlers() {
+    document.addEventListener('submit', function (e) {
+      var form = e.target;
+      if (!form || !form.classList.contains('mark-as-read-form')) return;
+      e.preventDefault();
+
+      var btn = form.querySelector('button[type="submit"]');
+      if (btn) { btn.disabled = true; }
+
+      var formData = new FormData(form);
+      var action = form.getAttribute('action') || window.location.pathname;
+
+      fetch(action, {
+        method: 'POST',
+        body: formData,
+        credentials: 'same-origin',
+        headers: { 'X-Requested-With': 'XMLHttpRequest' }
+      }).then(function (res) {
+        if (res.ok) {
+          // remove the notification element from DOM using stable data attribute
+          try {
+            var idInput = form.querySelector('input[name="id"]');
+            var id = idInput ? idInput.value : form.getAttribute('data-notification-id');
+            if (id) {
+              var selector = '.lb-notification-item[data-notification-id="' + id + '"]';
+              var itemById = document.querySelector(selector);
+              if (itemById) itemById.remove();
+            }
+          } catch (e) { /* ignore and fallback */ }
+
+          // update nav badge(s)
+            var badge = document.getElementById('notification-unread-count');
+            var navBadge = document.getElementById('notifBadge');
+          try {
+            if (badge) {
+                // try to decrement current numeric value safely
+                var cur = parseInt(badge.textContent.replace(/[^0-9]/g, '') || '0', 10) || 0;
+                var next = Math.max(0, cur - 1);
+              if (next > 0) {
+                badge.textContent = next;
+                badge.style.display = 'inline-block';
+              } else {
+                badge.style.display = 'none';
+              }
+            }
+            if (navBadge) {
+              // navBadge may contain spinner; fetch current count from server
+              fetch('/Notification/UnreadCount', { credentials: 'same-origin' })
+                .then(function (r) { return r.json(); })
+                .then(function (count) {
+                  navBadge.innerHTML = count;
+                }).catch(function () { /* ignore */ });
+            }
+          } catch (ex) { /* ignore */ }
+        } else {
+          // fallback: on failure, reload so user sees correct state
+          window.location.reload();
+        }
+      }).catch(function () {
+        window.location.reload();
+      }).finally(function () { if (btn) btn.disabled = false; });
+    });
   }
 })();

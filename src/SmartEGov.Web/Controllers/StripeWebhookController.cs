@@ -37,6 +37,11 @@ public class StripeWebhookController : ControllerBase
     public async Task<IActionResult> Post()
     {
         var json = await new StreamReader(HttpContext.Request.Body).ReadToEndAsync();
+        if (string.IsNullOrWhiteSpace(json))
+        {
+            _logger.LogWarning("Stripe webhook received empty payload.");
+            return BadRequest();
+        }
         var stripeSignature = HttpContext.Request.Headers["Stripe-Signature"].FirstOrDefault();
 
         var webhookSecret = _configuration["Stripe:WebhookSecret"] ?? Environment.GetEnvironmentVariable("STRIPE_WEBHOOK_SECRET");
@@ -96,7 +101,7 @@ public class StripeWebhookController : ControllerBase
 
                     // Fetch full session from Stripe to obtain payment_intent and charges
                     var sessionService = new SessionService();
-                    Session fullSession = null;
+                    Session? fullSession = null;
                     try
                     {
                         fullSession = await sessionService.GetAsync(sessionId, new SessionGetOptions
@@ -231,7 +236,7 @@ public class StripeWebhookController : ControllerBase
 
                     // Fetch full PaymentIntent to get card info
                     var piService2 = new PaymentIntentService();
-                    PaymentIntent fullIntent = null;
+                    PaymentIntent? fullIntent = null;
                     try
                     {
                         fullIntent = await piService2.GetAsync(intentId, new PaymentIntentGetOptions

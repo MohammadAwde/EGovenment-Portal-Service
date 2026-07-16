@@ -27,7 +27,7 @@ public class GovernmentServiceDto
     public int? DepartmentId { get; set; }
     public string? DepartmentName { get; set; }
     public int? ApprovalWorkflowId { get; set; }
-    public IEnumerable<RequiredDocumentDto> RequiredDocuments { get; set; } = [];
+    public IEnumerable<RequiredDocumentDto> RequiredDocuments { get; set; } = new List<RequiredDocumentDto>();
 }
 
 public class RequiredDocumentDto

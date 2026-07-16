@@ -295,7 +295,7 @@ public class ServiceRequestController : Controller
 
                 if (!has)
                 {
-                    missing.Add(req.DocumentName);
+                    missing.Add(req.DocumentName ?? string.Empty);
                 }
             }
         }
@@ -410,7 +410,9 @@ public class ServiceRequestController : Controller
             // Create the request first with Draft status temporarily to get an ID for validation
             var tempModel = model;
             tempModel.Status = ServiceRequestStatus.Draft;
-            var tempRequest = await _serviceRequestService.CreateAsync(tempModel);
+            // Create a draft first to obtain an ID for file validation. Use SaveDraftAsync to avoid
+            // duplicate-submission checks present in CreateAsync which only applies to final submissions.
+            var tempRequest = await _serviceRequestService.SaveDraftAsync(tempModel);
 
             // Now validate all mandatory requirements
             var (allRequirementsMet, missingDocs) = await ValidateAllMandatoryRequirementsMetAsync(
@@ -634,6 +636,39 @@ public class ServiceRequestController : Controller
                 null,
                 $"Service request #{id} status updated to {status}"
             );
+
+            // If the request was marked Completed, send an SMS/email notification to the citizen
+            try
+            {
+                if (string.Equals(status, "Completed", StringComparison.OrdinalIgnoreCase))
+                {
+                    var dto = await _serviceRequestService.GetByIdAsync(id);
+                    if (dto != null)
+                    {
+                        var citizen = await _unitOfWork.Citizens.GetByIdAsync(dto.CitizenId);
+                        if (citizen != null)
+                        {
+                            // Build an absolute URL to the completion file if available, otherwise to the request details
+                            string link;
+                            if (!string.IsNullOrWhiteSpace(dto.CompletionFilePath))
+                            {
+                                link = $"{Request.Scheme}://{Request.Host}{dto.CompletionFilePath}";
+                            }
+                            else
+                            {
+                                link = Url.Action("Details", "ServiceRequest", new { id = dto.Id }, Request.Scheme ?? "https");
+                            }
+
+                            var message = $"Your service request {dto.ReferenceNumber} has been completed. Download: {link}";
+                            await _notificationService.SendAsync(citizen.UserId, "Request Completed", message);
+                        }
+                    }
+                }
+            }
+            catch (Exception ex)
+            {
+                _logger.LogWarning(ex, "Failed to send completion notification for request {RequestId}", id);
+            }
 
             TempData["Success"] = $"Status updated to {status} successfully.";
         }

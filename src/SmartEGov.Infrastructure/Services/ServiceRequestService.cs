@@ -1,11 +1,18 @@
-using AutoMapper;
+using System;
+using System.Collections.Generic;
+using System.Linq;
+using System.Threading.Tasks;
 using SmartEGov.Application.DTOs;
 using Microsoft.Extensions.Logging;
+using AutoMapper;
 using SmartEGov.Application.Interfaces;
 using SmartEGov.Application.Services;
 using Microsoft.AspNetCore.Http;
 using SmartEGov.Domain.Entities;
 using SmartEGov.Domain.Enums;
+using Twilio;
+using Twilio.Rest.Api.V2010.Account;
+using Twilio.Types;
 
 namespace SmartEGov.Infrastructure.Services;
 
@@ -17,6 +24,7 @@ public class ServiceRequestService : IServiceRequestService
     private readonly IWorkflowService _workflowService;
     private readonly IMapper _mapper;
     private readonly ILogger<ServiceRequestService> _logger;
+    private readonly TwilioSettings _twilioSettings;
     private readonly IDocumentService _documentService;
 
     public ServiceRequestService(
@@ -25,7 +33,9 @@ public class ServiceRequestService : IServiceRequestService
         IAuditLogService auditLogService,
         IWorkflowService workflowService,
         IMapper mapper,
-        IDocumentService documentService)
+        IDocumentService documentService,
+        TwilioSettings twilioSettings,
+        ILogger<ServiceRequestService> logger)
     {
         _unitOfWork = unitOfWork;
         _notificationService = notificationService;
@@ -33,6 +43,8 @@ public class ServiceRequestService : IServiceRequestService
         _workflowService = workflowService;
         _mapper = mapper;
         _documentService = documentService;
+        _twilioSettings = twilioSettings;
+        _logger = logger;
     }
 
     public async Task<ServiceRequestDto?> GetByIdAsync(int id)
@@ -61,7 +73,6 @@ public class ServiceRequestService : IServiceRequestService
 
     public async Task<IEnumerable<ServiceRequestDto>> GetPendingRequestsByOfficerAsync(string officerId)
     {
-        // Only return pending requests for services this officer is explicitly assigned to.
         var assignments = await _unitOfWork.OfficerServiceAssignments.GetByOfficerIdAsync(officerId);
         var serviceIds = assignments.Select(a => a.GovernmentServiceId).ToList();
 
@@ -76,7 +87,6 @@ public class ServiceRequestService : IServiceRequestService
     {
         _logger?.LogInformation("CreateAsync called for CitizenId={CitizenId}, GovernmentServiceId={GovernmentServiceId}", dto.CitizenId, dto.GovernmentServiceId);
 
-        // Duplicate detection: if user submitted same service within last 24 hours, block
         var since = DateTime.UtcNow.AddHours(-24);
         var recent = await _unitOfWork.ServiceRequests.GetRecentByCitizenAndServiceAsync(dto.CitizenId, dto.GovernmentServiceId, since);
         if (recent != null && recent.Any())
@@ -84,7 +94,6 @@ public class ServiceRequestService : IServiceRequestService
             throw new InvalidOperationException("A similar service request was submitted recently. Please check your requests before submitting again.");
         }
 
-        // This method creates a submitted request. Drafts should be created via SaveDraftAsync.
         var serviceRequest = new ServiceRequest
         {
             ReferenceNumber = GenerateReferenceNumber(),
@@ -132,7 +141,7 @@ public class ServiceRequestService : IServiceRequestService
             CitizenId = dto.CitizenId,
             Notes = dto.Notes ?? string.Empty,
             Status = ServiceRequestStatus.Draft,
-            SubmittedAt = null
+            SubmittedAt = DateTime.UtcNow
         };
 
         await _unitOfWork.ServiceRequests.AddAsync(serviceRequest);
@@ -156,30 +165,27 @@ public class ServiceRequestService : IServiceRequestService
 
         var originalStatus = request.Status;
 
-        // Only allow edits for drafts or allow changing fields before submission
-        // Business rule: if request already progressed beyond Draft, editing core fields is restricted
-        if (originalStatus != ServiceRequestStatus.Draft && originalStatus != ServiceRequestStatus.Submitted)
+        if (originalStatus != ServiceRequestStatus.Draft
+            && originalStatus != ServiceRequestStatus.Submitted
+            && originalStatus != ServiceRequestStatus.PendingInformation)
         {
-            throw new InvalidOperationException("Only draft or submitted requests can be edited.");
+            throw new InvalidOperationException("Only draft, submitted, or requests needing additional information can be edited.");
         }
 
         request.GovernmentServiceId = dto.GovernmentServiceId;
         request.Notes = dto.Notes ?? string.Empty;
 
-        // If the caller changes status from Draft to Submitted, set SubmittedAt and initialize workflow
         if (originalStatus == ServiceRequestStatus.Draft && dto.Status == ServiceRequestStatus.Submitted)
         {
             request.Status = ServiceRequestStatus.Submitted;
             request.SubmittedAt = DateTime.UtcNow;
 
-            // Initialize workflow if applicable
             var govService = await _unitOfWork.GovernmentServices.GetWithWorkflowAsync(request.GovernmentServiceId);
             if (govService?.ApprovalWorkflowId != null)
             {
                 await _workflowService.InitializeWorkflowAsync(request.Id, govService.ApprovalWorkflowId.Value);
             }
 
-            // Notify citizen
             var citizen = await _unitOfWork.Citizens.GetByIdAsync(request.CitizenId);
             if (citizen != null)
             {
@@ -192,7 +198,6 @@ public class ServiceRequestService : IServiceRequestService
         }
         else
         {
-            // For drafts or minor edits, just update
             request.Status = dto.Status;
             await _auditLogService.LogAsync(null, "Updated", "ServiceRequest",
                 request.Id.ToString(), originalStatus.ToString(), request.Status.ToString());
@@ -201,7 +206,6 @@ public class ServiceRequestService : IServiceRequestService
         _unitOfWork.ServiceRequests.Update(request);
         await _unitOfWork.SaveChangesAsync();
 
-        // Map back
         var result = _mapper.Map<ServiceRequestDto>(request);
         return result;
     }
@@ -243,6 +247,65 @@ public class ServiceRequestService : IServiceRequestService
         {
             await _notificationService.SendAsync(request.Citizen.UserId, "Request Completed",
                 $"Your service request {request.ReferenceNumber} has been completed. The final document is now available for download.");
+
+            // Send WhatsApp via Twilio
+            try
+            {
+                var citizen = request.Citizen;
+                var phone = citizen?.PhoneNumber;
+                if (!string.IsNullOrWhiteSpace(phone))
+                {
+                    string NormalizePhone(string input)
+                    {
+                        if (string.IsNullOrWhiteSpace(input)) return input ?? string.Empty;
+                        var trimmed = input.Trim();
+                        var chars = trimmed.Where(c => char.IsDigit(c) || c == '+').ToArray();
+                        var cleaned = new string(chars);
+                        if (cleaned.StartsWith("+")) return cleaned;
+                        if (cleaned.StartsWith("00")) return "+" + cleaned.Substring(2);
+                        var dc = _twilioSettings.DefaultCountryCode?.Trim();
+                        if (!string.IsNullOrWhiteSpace(dc))
+                        {
+                            if (!dc.StartsWith("+")) dc = "+" + dc;
+                            if (cleaned.StartsWith("0"))
+                                return dc + cleaned.Substring(1);
+                            return dc + cleaned;
+                        }
+                        return cleaned;
+                    }
+
+                    var toNormalized = NormalizePhone(phone);
+                    var toWhatsapp = "whatsapp:" + toNormalized;
+                    var fromWhatsapp = _twilioSettings.FromPhoneNumber?.Trim();
+                    if (!string.IsNullOrWhiteSpace(fromWhatsapp) && !fromWhatsapp.StartsWith("whatsapp:"))
+                        fromWhatsapp = "whatsapp:" + fromWhatsapp;
+
+                    if (!string.IsNullOrWhiteSpace(_twilioSettings.AccountSid) && !string.IsNullOrWhiteSpace(_twilioSettings.AuthToken))
+                    {
+                        TwilioClient.Init(_twilioSettings.AccountSid, _twilioSettings.AuthToken);
+
+                        var message = await MessageResource.CreateAsync(
+                            body: $"Your service request {request.ReferenceNumber} has been completed. Download the final document from your account.",
+                            from: new PhoneNumber(fromWhatsapp),
+                            to: new PhoneNumber(toWhatsapp)
+                        );
+
+                        _logger?.LogInformation("WhatsApp message sent to {To}. SID={Sid}", toWhatsapp, message.Sid);
+                    }
+                    else
+                    {
+                        _logger?.LogWarning("Twilio credentials not configured; cannot send WhatsApp message.");
+                    }
+                }
+                else
+                {
+                    _logger?.LogInformation("Citizen {CitizenId} has no phone; skipping WhatsApp.", request.CitizenId);
+                }
+            }
+            catch (Exception ex)
+            {
+                _logger?.LogError(ex, "Failed to send WhatsApp notification for ServiceRequest {RequestId}", request.Id);
+            }
         }
         else
         {
@@ -294,20 +357,17 @@ public class ServiceRequestService : IServiceRequestService
         var request = await _unitOfWork.ServiceRequests.GetByIdAsync(serviceRequestId);
         if (request == null) throw new KeyNotFoundException("Service request not found.");
 
-        // Allow uploads for most active statuses. Disallow only when completed or cancelled.
         if (request.Status == ServiceRequestStatus.Completed || request.Status == ServiceRequestStatus.Cancelled)
             throw new InvalidOperationException("Cannot upload documents for this request in its current status.");
 
         var uploaded = await _documentService.UploadMultipleAsync(serviceRequestId, files);
 
-        // If officer had requested additional information, revert to UnderReview after citizen uploads
         if (request.Status == ServiceRequestStatus.PendingInformation)
         {
             request.Status = ServiceRequestStatus.UnderReview;
             _unitOfWork.ServiceRequests.Update(request);
             await _unitOfWork.SaveChangesAsync();
 
-            // Notify assigned officers for this service that new documents were provided
             var assignments = await _unitOfWork.OfficerServiceAssignments.GetByServiceIdAsync(request.GovernmentServiceId);
             foreach (var a in assignments)
             {

@@ -2,6 +2,7 @@
 @{
     ViewData["Title"] = "Edit Government Service";
     var workflows = ViewBag.Workflows as IEnumerable<SmartEGov.Domain.Entities.ApprovalWorkflow> ?? Enumerable.Empty<SmartEGov.Domain.Entities.ApprovalWorkflow>();
+    var requirements = ViewBag.RequiredDocuments as IEnumerable<SmartEGov.Application.DTOs.RequiredDocumentDto> ?? Enumerable.Empty<SmartEGov.Application.DTOs.RequiredDocumentDto>();
 }
 
 <div class="lb-page-header">
@@ -62,6 +63,81 @@
                     <input asp-for="IsActive" class="form-check-input" />
                     <label asp-for="IsActive" class="form-check-label"></label>
                 </div>
+
+                <hr class="my-4" />
+
+                <h5 class="text-uppercase fw-bold mb-3" style="color: var(--lb-green-dark); letter-spacing: .04em;">
+                    <i class="bi bi-file-earmark-text me-2"></i>Required Documents
+                </h5>
+
+                <p class="text-muted small mb-3">
+                    <i class="bi bi-info-circle me-1"></i>Manage documents that citizens must upload to submit a request for this service. 
+                    Mark as <strong>Mandatory</strong> if required, or <strong>Optional</strong> if it's optional.
+                </p>
+
+                <div id="requirementsContainer" class="mb-3">
+                    @{ var reqList = requirements.ToList(); var index = 0; var totalReq = reqList.Count; var mandatoryCount = reqList.Count(r => r.IsMandatory); }
+
+                    <div class="mb-2 small">
+                        <strong>Summary:</strong>
+                        <span class="badge bg-secondary ms-2">Total: @totalReq</span>
+                        <span class="badge bg-danger ms-1">Mandatory: @mandatoryCount</span>
+                        <span class="badge bg-info ms-1">Optional: @(totalReq - mandatoryCount)</span>
+                    </div>
+
+                    @foreach (var req in reqList)
+                    {
+                        <div class="requirement-item mb-3 p-3 border rounded-2" style="background: #f8f9fa;">
+                            <div class="row g-2">
+                                <input type="hidden" name="requirements[@index].Id" value="@req.Id" />
+                                <div class="col-md-4">
+                                    <div class="d-flex align-items-center">
+                                        <input type="text"
+                                               name="requirements[@index].DocumentName"
+                                               class="form-control me-2"
+                                               value="@req.DocumentName"
+                                               placeholder="Document name" />
+                                        @if (req.IsMandatory)
+                                        {
+                                            <span class="badge bg-danger">Required</span>
+                                        }
+                                        else
+                                        {
+                                            <span class="badge bg-secondary">Optional</span>
+                                        }
+                                    </div>
+                                </div>
+                                <div class="col-md-5">
+                                    <input type="text"
+                                           name="requirements[@index].Description"
+                                           class="form-control"
+                                           value="@(req.Description ?? "")"
+                                           placeholder="Optional description" />
+                                </div>
+                                <div class="col-md-2">
+                                    <div class="form-check mt-1">
+                                        <input type="checkbox"
+                                               name="requirements[@index].IsMandatory"
+                                               value="true"
+                                               class="form-check-input"
+                                               @(req.IsMandatory ? "checked" : "") />
+                                        <label class="form-check-label small">Mandatory</label>
+                                    </div>
+                                </div>
+                                <div class="col-md-1">
+                                    <button type="button" class="btn btn-sm btn-outline-danger" onclick="removeRequirement(this)">
+                                        <i class="bi bi-trash"></i>
+                                    </button>
+                                </div>
+                            </div>
+                        </div>
+                        index++;
+                    }
+                </div>
+
+                <button type="button" class="btn btn-sm btn-outline-primary mb-4" id="addRequirementBtn">
+                    <i class="bi bi-plus-circle me-1"></i>Add Document
+                </button>
                 <div class="d-flex gap-2">
                     <button type="submit" class="btn btn-lb-primary">
                         <i class="bi bi-check-lg me-1"></i>Save Changes
@@ -77,4 +153,75 @@
 
 @section Scripts {
     <partial name="_ValidationScriptsPartial" />
+    <script>
+        let requirementCount = @(requirements.Count());
+
+        document.getElementById('addRequirementBtn').addEventListener('click', function () {
+            const container = document.getElementById('requirementsContainer');
+            const newRequirement = document.createElement('div');
+            newRequirement.className = 'requirement-item mb-3 p-3 border rounded-2';
+            newRequirement.style.background = '#f8f9fa';
+            newRequirement.innerHTML = `
+                <div class="row g-2">
+                    <input type="hidden" name="requirements[${requirementCount}].Id" value="0" />
+
+                    <div class="col-md-4">
+                        <input type="text" 
+                               name="requirements[${requirementCount}].DocumentName" 
+                               class="form-control" 
+                               placeholder="Document name" />
+                    </div>
+
+                    <div class="col-md-5">
+                        <input type="text" 
+                               name="requirements[${requirementCount}].Description" 
+                               class="form-control" 
+                               placeholder="Optional description" />
+                    </div>
+
+                    <div class="col-md-2">
+                        <div class="form-check mt-1">
+                            <input type="checkbox" 
+                                   name="requirements[${requirementCount}].IsMandatory" 
+                                   value="true" 
+                                   class="form-check-input" 
+                                   checked />
+                            <label class="form-check-label small">Mandatory</label>
+                        </div>
+                    </div>
+
+                    <div class="col-md-1">
+                        <button type="button" class="btn btn-sm btn-outline-danger" onclick="removeRequirement(this)">
+                            <i class="bi bi-trash"></i>
+                        </button>
+                    </div>
+                </div>
+            `;
+            container.appendChild(newRequirement);
+            requirementCount++;
+        });
+
+        function removeRequirement(btn) {
+            btn.closest('.requirement-item').remove();
+        }
+
+        // If navigated with fragment to requirementsContainer, smooth scroll and highlight
+        (function(){
+            try {
+                if (window.location.hash === '#requirementsContainer') {
+                    var el = document.getElementById('requirementsContainer');
+                    if (el) {
+                        el.scrollIntoView({ behavior: 'smooth', block: 'start' });
+                        el.style.transition = 'box-shadow 0.3s ease, border 0.3s ease';
+                        el.style.boxShadow = '0 0 0 4px rgba(16, 185, 129, 0.12)';
+                        el.style.border = '1px solid rgba(16,185,129,0.6)';
+                        setTimeout(function(){ el.style.boxShadow = ''; el.style.border = ''; }, 3000);
+                        // focus first input
+                        var first = el.querySelector('input[name$=".DocumentName"]');
+                        if (first) first.focus();
+                    }
+                }
+            } catch (e) { /* ignore */ }
+        })();
+    </script>
 }

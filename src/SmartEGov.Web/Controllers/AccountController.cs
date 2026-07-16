@@ -1,6 +1,8 @@
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Hosting;
 using Microsoft.AspNetCore.Identity;
+using Microsoft.AspNetCore.Authentication;
+using System.Security.Claims;
 using Microsoft.AspNetCore.Mvc;
 using SmartEGov.Application.DTOs;
 using SmartEGov.Application.Services;
@@ -49,6 +51,85 @@ public class AccountController : Controller
         _logger = logger;
     }
 
+    [HttpPost]
+    [ValidateAntiForgeryToken]
+    public IActionResult ExternalLogin(string provider, string? returnUrl = null)
+    {
+        // Request a redirect to the external login provider.
+        var redirectUrl = Url.Action(nameof(ExternalLoginCallback), "Account", new { returnUrl });
+        var properties = _signInManager.ConfigureExternalAuthenticationProperties(provider, redirectUrl);
+        return Challenge(properties, provider);
+    }
+
+    [HttpGet]
+    public async Task<IActionResult> ExternalLoginCallback(string? returnUrl = null, string? remoteError = null)
+    {
+        if (!string.IsNullOrEmpty(remoteError))
+        {
+            ModelState.AddModelError(string.Empty, $"Error from external provider: {remoteError}");
+            return View(nameof(Login));
+        }
+
+        var info = await _signInManager.GetExternalLoginInfoAsync();
+        if (info == null)
+            return RedirectToAction(nameof(Login));
+
+        // Try to sign in the user with this external login provider
+        var signInResult = await _signInManager.ExternalLoginSignInAsync(info.LoginProvider, info.ProviderKey, isPersistent: false, bypassTwoFactor: true);
+        if (signInResult.Succeeded)
+        {
+            var user = await _userManager.FindByLoginAsync(info.LoginProvider, info.ProviderKey);
+            await _auditLogService.LogAsync(user?.Id, "ExternalLogin", "ApplicationUser", user?.Id, null, $"User logged in with {info.LoginProvider}");
+            return RedirectToLocal(returnUrl);
+        }
+
+        // If the user does not have an account, create one using the provider's email claim (if available)
+        var email = info.Principal.FindFirstValue(ClaimTypes.Email);
+        if (!string.IsNullOrEmpty(email))
+        {
+            var user = await _userManager.FindByEmailAsync(email);
+            if (user == null)
+            {
+                user = new ApplicationUser
+                {
+                    UserName = email,
+                    Email = email,
+                    EmailConfirmed = true,
+                    IsActive = true,
+                    FullName = info.Principal.FindFirstValue(ClaimTypes.Name)
+                };
+
+                var createResult = await _userManager.CreateAsync(user);
+                if (createResult.Succeeded)
+                {
+                    await _userManager.AddToRoleAsync(user, "Citizen");
+                }
+            }
+
+            // Link the external login to the user
+            var addLoginResult = await _userManager.AddLoginAsync(user, info);
+            if (addLoginResult.Succeeded)
+            {
+                await _signInManager.SignInAsync(user, isPersistent: false);
+                await _auditLogService.LogAsync(user.Id, "ExternalLoginRegistered", "ApplicationUser", user.Id, null, $"User registered via {info.LoginProvider}");
+                return RedirectToLocal(returnUrl);
+            }
+        }
+
+        // If we reach here, we need to ask the user for an email or show an error
+        ViewData["ReturnUrl"] = returnUrl;
+        ViewData["LoginProvider"] = info.LoginProvider;
+        ModelState.AddModelError(string.Empty, "Unable to retrieve an email from the external provider. Please register using your email.");
+        return View(nameof(Login));
+    }
+
+    private IActionResult RedirectToLocal(string? returnUrl)
+    {
+        if (!string.IsNullOrEmpty(returnUrl) && Url.IsLocalUrl(returnUrl))
+            return Redirect(returnUrl);
+        return RedirectToAction("Index", "Home");
+    }
+
     [HttpGet]
     public IActionResult ForgotPassword()
     {
@@ -91,7 +172,7 @@ public class AccountController : Controller
             try
             {
                 var sent = false;
-                if (_mailtrapService != null)
+                if (_mailtrapService != null && !string.IsNullOrWhiteSpace(user.Email))
                 {
                     try
                     {

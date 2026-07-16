@@ -12,7 +12,10 @@
     </script>
     <link rel="stylesheet" href="~/lib/bootstrap/dist/css/bootstrap.min.css" />
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.min.css" crossorigin="anonymous" />
+    <!-- Local fallback: only include if local file exists to avoid MIME/404 warnings when CDN is blocked -->
     @{
+        // Prefer a local copy of bootstrap-icons when available (avoids tracking-prevention CDN blocks).
+        // If local copy isn't present, fall back to the CDN.
         try
         {
             var env = Context.RequestServices.GetService(typeof(Microsoft.AspNetCore.Hosting.IWebHostEnvironment)) as Microsoft.AspNetCore.Hosting.IWebHostEnvironment;
@@ -27,12 +30,12 @@
                 <link rel="stylesheet" href="~/lib/bootstrap-icons/font/bootstrap-icons.min.css" />
             }
         }
-        catch { }
+        catch
+        {
+            // ignore - don't render local fallback if any error occurs
+        }
     }
     <link rel="stylesheet" href="~/css/site.css" asp-append-version="true" />
-    <link rel="stylesheet" href="~/css/arabic-rtl.css" asp-append-version="true" />
-    <link id="bootstrap-rtl" rel="stylesheet" href="" />
-    @await RenderSectionAsync("Styles", required: false)
 </head>
 <body>
     @{
@@ -83,21 +86,12 @@
                         </a>
                     </li>
 
+                    @* Citizen links *@
                     @if (isLoggedIn && isCitizen)
                     {
                         <li class="nav-item">
                             <a class="nav-link" asp-controller="Citizen" asp-action="Dashboard">
                                 <i class="bi bi-speedometer2 me-1"></i>Dashboard
-                            </a>
-                        </li>
-                        <li class="nav-item">
-                            <a class="nav-link" asp-controller="ServiceRequest" asp-action="Index">
-                                <i class="bi bi-file-earmark-text me-1"></i>My Requests
-                            </a>
-                        </li>
-                        <li class="nav-item">
-                            <a class="nav-link" asp-controller="Appointment" asp-action="Index">
-                                <i class="bi bi-calendar-check me-1"></i>My Appointments
                             </a>
                         </li>
                         <li class="nav-item">
@@ -110,26 +104,19 @@
                                 <i class="bi bi-person me-1"></i>Profile
                             </a>
                         </li>
+                    }
+
+                    @* Notifications for any logged-in user *@
+                    @if (isLoggedIn)
+                    {
                         <li class="nav-item">
-                            <a class="nav-link" asp-controller="Notification" asp-action="Index">
-                                <i class="bi bi-bell me-1"></i>Notifications
-                                @{
-                                    var unreadCount = ViewBag.UnreadNotificationCount as int?;
-                                }
-                                @if (unreadCount.HasValue && unreadCount > 0)
-                                {
-                                    <span class="badge bg-danger rounded-pill ms-1">@unreadCount</span>
-                                }
-                                else
-                                {
-                                    <span class="badge bg-secondary rounded-pill ms-1" id="notifBadge"
-                                          hx-get="/Notification/UnreadCount"
-                                          hx-trigger="load, every 30s"
-                                          hx-swap="innerHTML">
-                                        <span class="spinner-border spinner-border-sm" style="width:.6rem;height:.6rem;"></span>
-                                    </span>
-                                }
-                            </a>
+                            @{
+                                /* Use the MVC ViewComponent instead of Blazor component so the
+                                   layout does not depend on server-side Blazor or websocket
+                                   connectivity. The ViewComponent will render the unread
+                                   notification count without requiring Blazor. */
+                            }
+                            @await Component.InvokeAsync("NotificationBadge")
                         </li>
                     }
 
@@ -257,6 +244,8 @@
     <script src="~/lib/jquery/dist/jquery.min.js"></script>
     <script src="~/lib/bootstrap/dist/js/bootstrap.bundle.min.js"></script>
     <script src="~/js/site.js" asp-append-version="true"></script>
+    <script src="~/js/app.js" asp-append-version="true"></script>
+    <script src="https://unpkg.com/htmx.org@1.9.2" crossorigin="anonymous"></script>
     <script src="~/js/translation.js" asp-append-version="true"></script>
     @await RenderSectionAsync("Scripts", required: false)
 </body>

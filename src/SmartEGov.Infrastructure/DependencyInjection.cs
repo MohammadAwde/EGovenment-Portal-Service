@@ -17,9 +17,10 @@ public static class DependencyInjection
         services.AddDbContext<ApplicationDbContext>(options =>
             options.UseSqlServer(configuration.GetConnectionString("DefaultConnection")));
 
-        var smsSettings = new SmsSettings();
-        configuration.GetSection("SmsSettings").Bind(smsSettings);
-        services.AddSingleton(smsSettings);
+        var twilioSettings = new TwilioSettings();
+        // Bind Twilio configuration
+        configuration.GetSection("Twilio").Bind(twilioSettings);
+        services.AddSingleton(twilioSettings);
 
         // Bind SMTP settings
         var smtpSettings = new SmtpSettings();
@@ -42,6 +43,7 @@ public static class DependencyInjection
         services.AddScoped<IAppointmentRepository, AppointmentRepository>();
         services.AddScoped<IServiceCenterRepository, ServiceCenterRepository>();
         services.AddScoped<IDocumentProfileRepository, DocumentProfileRepository>();
+        services.AddScoped<IRequiredDocumentRepository, RequiredDocumentRepository>();
 
 
         services.AddScoped<ICitizenService, CitizenService>();
@@ -49,7 +51,6 @@ public static class DependencyInjection
         services.AddScoped<IDocumentService, DocumentService>();
         services.AddScoped<IWorkflowService, WorkflowService>();
         services.AddScoped<INotificationService, NotificationService>();
-        services.AddScoped<ISmsNotificationService, SmsNotificationService>();
         services.AddScoped<IEmailSender, SmtpEmailService>();
         services.AddScoped<IMailtrapService, MailtrapService>();
         services.AddScoped<IAuditLogService, AuditLogService>();

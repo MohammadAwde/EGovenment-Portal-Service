@@ -41,6 +41,47 @@
   --lb-space-4xl: 3.5rem;
 }
 
+/* Dark theme variables - toggled by adding .dark-theme to body */
+body.dark-theme {
+  --lb-body-bg: #0f1720;
+  --lb-text: #e6eef6;
+  --lb-muted: #b8c2cc;
+  --lb-border: #1f2933;
+  --lb-white: #071018;
+}
+
+body.dark-theme a { color: #9fe7c6; }
+body.dark-theme .lb-navbar { background: linear-gradient(135deg,#0b3b2a 0%, #063629 100%); }
+body.dark-theme .card, body.dark-theme .lb-auth-card, body.dark-theme .lb-service-card { background: #071018; color: var(--lb-text); border-color: var(--lb-border); }
+body.dark-theme .lb-hero { background: linear-gradient(135deg,#052b20 0%, #07402e 60%); }
+body.dark-theme .alert { opacity: 0.95; }
+
+/* Floating label tweaks for modern forms */
+.form-floating > .form-control,
+.form-floating > .form-select,
+.form-floating > textarea.form-control {
+  border-radius: .75rem;
+  padding: 1.1rem .9rem .4rem .9rem;
+}
+.form-floating > label {
+  padding-left: .9rem;
+  padding-right: .9rem;
+  color: var(--lb-muted);
+  font-weight: 600;
+}
+
+/* Small spinner used in app.js */
+.lb-spinner {
+  display: inline-block;
+  width: 1rem;
+  height: 1rem;
+  border: 2px solid rgba(255,255,255,0.2);
+  border-top-color: rgba(255,255,255,0.9);
+  border-radius: 50%;
+  animation: lb-spin .8s linear infinite;
+}
+@keyframes lb-spin { to { transform: rotate(360deg); } }
+
 html { 
   font-size: 15px; 
   position: relative; 
@@ -557,6 +598,27 @@ a:focus {
 .btn-lg {
   padding: 0.75rem 2rem;
   font-size: 1.05rem;
+}
+
+/* Admin dashboard action buttons - ensure visibility on light/dark themes */
+.admin-actions .btn {
+  color: var(--lb-green-dark);
+  background: transparent;
+  border: 1px solid rgba(0,0,0,0.06);
+}
+.admin-actions .btn:hover,
+.admin-actions .btn:focus {
+  background: var(--lb-green);
+  color: #fff !important;
+  border-color: var(--lb-green);
+  transform: translateY(-2px);
+  box-shadow: var(--lb-shadow-md);
+}
+
+/* Improve contrast for outline buttons on dark theme */
+body.dark-theme .admin-actions .btn {
+  color: #e6eef6;
+  border-color: rgba(255,255,255,0.06);
 }
 
 /* ========== Forms ========== */

@@ -7,6 +7,13 @@ using SmartEGov.Infrastructure.Authorization;
 using SmartEGov.Infrastructure.Middleware;
 using Microsoft.AspNetCore.Http;
 using System.Security.Cryptography;
+using System.IO;
+using System.Threading.RateLimiting;
+using Microsoft.AspNetCore.RateLimiting;
+using Microsoft.AspNetCore.ResponseCompression;
+using System.Linq;
+using Microsoft.AspNetCore.DataProtection;
+using Microsoft.AspNetCore.HttpOverrides;
 
 
 var builder = WebApplication.CreateBuilder(args);
@@ -39,6 +46,24 @@ builder.Services.AddIdentity<ApplicationUser, IdentityRole>(options =>
 })
 .AddEntityFrameworkStores<ApplicationDbContext>()
 .AddDefaultTokenProviders();
+
+// Add external authentication providers (Google, Apple)
+// Configure only when configuration values are present to allow optional setup.
+var googleClientId = builder.Configuration["Authentication:Google:ClientId"];
+var googleClientSecret = builder.Configuration["Authentication:Google:ClientSecret"];
+if (!string.IsNullOrWhiteSpace(googleClientId) && !string.IsNullOrWhiteSpace(googleClientSecret))
+{
+    builder.Services.AddAuthentication()
+        .AddGoogle("Google", options =>
+        {
+            options.ClientId = googleClientId;
+            options.ClientSecret = googleClientSecret;
+            options.SignInScheme = IdentityConstants.ExternalScheme;
+            options.SaveTokens = true;
+        });
+}
+
+// Apple Sign In requires additional setup (private key and client secret). Add when ready using AspNet.Security.OAuth.Apple
 
 builder.Services.ConfigureApplicationCookie(options =>
 {
@@ -85,15 +110,55 @@ builder.Services.AddControllersWithViews()
     });
 builder.Services.AddLocalization(options => options.ResourcesPath = "Resources");
 
-builder.Services.Configure<RequestLocalizationOptions>(options =>
+// Blazor Server removed to avoid websocket/hotreload injection issues in development.
+// If you need Blazor in the future, re-enable AddServerSideBlazor() and MapBlazorHub().
+
+// Health checks (for /health endpoint) and response compression
+builder.Services.AddHealthChecks();
+
+// Response compression to improve throughput
+// Configure response compression. Note: exclude HTML from compression so middleware
+// that injects scripts into HTML responses (BrowserLink / Hot Reload) can operate
+// even when compression providers are enabled.
+builder.Services.AddResponseCompression(options =>
 {
-    var supportedCultures = new[] { "en", "ar" };
-    options.SetDefaultCulture("en")
-           .AddSupportedCultures(supportedCultures)
-           .AddSupportedUICultures(supportedCultures);
-    options.RequestCultureProviders.Insert(0,
-        new Microsoft.AspNetCore.Localization.CookieRequestCultureProvider());
+    options.EnableForHttps = true;
+    options.Providers.Add<BrotliCompressionProvider>();
+    options.Providers.Add<GzipCompressionProvider>();
+
+    // In development exclude text/html so BrowserLink / Hot Reload can inject
+    // scripts into HTML responses. In production keep default MIME types so
+    // HTML can still be compressed.
+    if (builder.Environment.IsDevelopment())
+    {
+        options.MimeTypes = ResponseCompressionDefaults.MimeTypes
+            .Where(m => !string.Equals(m, "text/html", StringComparison.OrdinalIgnoreCase))
+            .Concat(new[] { "application/json" });
+    }
+    else
+    {
+        options.MimeTypes = ResponseCompressionDefaults.MimeTypes.Concat(new[] { "application/json" });
+    }
 });
+
+// When the app runs behind a reverse proxy (nginx/IIS/ingress) enable forwarded
+// headers so authentication, HTTPS detection and websocket upgrades work correctly.
+builder.Services.Configure<ForwardedHeadersOptions>(options =>
+{
+    options.ForwardedHeaders = ForwardedHeaders.XForwardedFor | ForwardedHeaders.XForwardedProto;
+    // Clear the default known networks so that forwarded headers are accepted
+    // when running inside some docker or cloud environments. Keep this secure
+    // in production by restricting KnownNetworks/KnownProxies if needed.
+    options.KnownNetworks.Clear();
+    options.KnownProxies.Clear();
+});
+builder.Services.Configure<BrotliCompressionProviderOptions>(opt => opt.Level = System.IO.Compression.CompressionLevel.Fastest);
+builder.Services.Configure<GzipCompressionProviderOptions>(opt => opt.Level = System.IO.Compression.CompressionLevel.Fastest);
+
+// Caching (in-memory). For multi-instance use a distributed cache like Redis.
+builder.Services.AddMemoryCache();
+builder.Services.AddDistributedMemoryCache();
+
 var app = builder.Build();
 
 // Seed roles and default Admin user
@@ -227,16 +292,31 @@ app.UseCookiePolicy(new CookiePolicyOptions
 });
 
 app.UseHttpsRedirection();
+// Compress responses to reduce bandwidth and speed up responses under load
+app.UseResponseCompression();
 app.UseStaticFiles();
 app.UseRouting();
 
-app.UseRequestLocalization();
+// Ensure forwarded headers are processed before authentication so schemes
+// and HTTPS detection work correctly when behind a proxy.
+app.UseForwardedHeaders();
+
+// Enable WebSockets explicitly to ensure the server accepts websocket
+// upgrade requests used by Blazor Server and hot-reload tools.
+app.UseWebSockets();
+
 app.UseAuthentication();
 app.UseAuthorization();
 
 app.MapControllerRoute(
     name: "default",
     pattern: "{controller=Home}/{action=Index}/{id?}");
+
+// Blazor server hub removed. Server-side Blazor has been disabled to avoid
+// reconnect and script-injection problems in development environments.
+
+// Health endpoint for load balancers / orchestrators
+app.MapHealthChecks("/health");
 
 
 
