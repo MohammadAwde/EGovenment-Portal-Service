@@ -1,5 +1,9 @@
 /* ── Arabic RTL Support ─────────────────────────────────────────────────── */
 
+body {
+    transition: opacity 0.2s ease;
+}
+
 [dir="rtl"] {
     font-family: 'Segoe UI', 'Cairo', 'Tajawal', Tahoma, Arial, sans-serif;
 }

@@ -4,6 +4,12 @@
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>@ViewData["Title"] - Lebanese E-Government Portal</title>
+    <script>
+        if (localStorage.getItem('smartegov_lang') === 'ar') {
+            document.documentElement.dir = 'rtl';
+            document.documentElement.lang = 'ar';
+        }
+    </script>
     <link rel="stylesheet" href="~/lib/bootstrap/dist/css/bootstrap.min.css" />
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.min.css" crossorigin="anonymous" />
     @{
@@ -238,6 +244,16 @@
         </div>
     </footer>
 
+    <div id="translationOverlay" style="display:none;position:fixed;top:0;left:0;width:100%;height:100%;background:#1a5c2e;z-index:99999;align-items:center;justify-content:center;flex-direction:column;">
+        <img src="/images/cedar.svg" style="height:60px;filter:brightness(0) invert(1);margin-bottom:20px;" />
+        <div style="color:white;font-size:18px;font-family:'Cairo',sans-serif;">جاري تحميل الصفحة...</div>
+    </div>
+
+    <script>
+        if (localStorage.getItem('smartegov_lang') === 'ar') {
+            document.getElementById('translationOverlay').style.display = 'flex';
+        }
+    </script>
     <script src="~/lib/jquery/dist/jquery.min.js"></script>
     <script src="~/lib/bootstrap/dist/js/bootstrap.bundle.min.js"></script>
     <script src="~/js/site.js" asp-append-version="true"></script>
