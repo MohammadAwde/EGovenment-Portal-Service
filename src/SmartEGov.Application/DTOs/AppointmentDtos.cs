@@ -18,6 +18,7 @@ public class ServiceCenterDto
 public class AppointmentDto
 {
     public int Id { get; set; }
+    public int QueueNumber { get; set; }
     public string UserId { get; set; } = string.Empty;
     [Required] public int ServiceCenterId { get; set; }
     [Required] public int GovernmentServiceId { get; set; }

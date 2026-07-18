@@ -40,4 +40,37 @@ public class TranslationController : Controller
             return StatusCode(500, new { error = ex.Message });
         }
     }
+
+    [HttpPost]
+    [AllowAnonymous]
+    public async Task<IActionResult> TranslateToEnglish([FromBody] string[] texts)
+    {
+        if (texts == null || texts.Length == 0)
+            return BadRequest();
+
+        try
+        {
+            using var client = new HttpClient();
+            client.DefaultRequestHeaders.Add("Authorization", $"DeepL-Auth-Key {DeepLKey}");
+            client.DefaultRequestHeaders.Accept.Add(new System.Net.Http.Headers.MediaTypeWithQualityHeaderValue("application/json"));
+
+            var requestBody = new
+            {
+                text = texts.Where(t => !string.IsNullOrWhiteSpace(t)).ToArray(),
+                target_lang = "EN",
+                source_lang = "AR"
+            };
+
+            var jsonContent = System.Text.Json.JsonSerializer.Serialize(requestBody);
+            var res = await client.PostAsync(DeepLUrl,
+                new StringContent(jsonContent, System.Text.Encoding.UTF8, "application/json"));
+
+            var json = await res.Content.ReadAsStringAsync();
+            return Content(json, "application/json");
+        }
+        catch (Exception ex)
+        {
+            return StatusCode(500, new { error = ex.Message });
+        }
+    }
 }

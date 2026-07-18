@@ -5,6 +5,7 @@ using SmartEGov.Application.DTOs;
 using SmartEGov.Application.Interfaces;
 using SmartEGov.Application.Services;
 using SmartEGov.Domain.Entities;
+using SmartEGov.Infrastructure.Services;
 
 
 namespace SmartEGov.Web.Controllers;
@@ -13,22 +14,30 @@ namespace SmartEGov.Web.Controllers;
 public class AppointmentController : Controller
 {
     private readonly IAppointmentService _appointmentService;
+    private readonly ICitizenService _citizenService;
     private readonly UserManager<ApplicationUser> _userManager;
     private readonly IUnitOfWork _unitOfWork;
 
-    public AppointmentController(IAppointmentService appointmentService, UserManager<ApplicationUser> userManager, IUnitOfWork unitOfWork)
+    public AppointmentController(IAppointmentService appointmentService, ICitizenService citizenService, UserManager<ApplicationUser> userManager, IUnitOfWork unitOfWork)
     {
         _appointmentService = appointmentService;
+        _citizenService = citizenService;
         _userManager = userManager;
         _unitOfWork = unitOfWork;
     }
 
     public async Task<IActionResult> Index()
-        => View(await _appointmentService.GetByUserAsync(_userManager.GetUserId(User)!));
+    {
+        var citizen = await _citizenService.GetByUserIdAsync(_userManager.GetUserId(User)!);
+        if (citizen == null) return RedirectToAction("Create", "Citizen");
+        return View(await _appointmentService.GetByUserAsync(_userManager.GetUserId(User)!));
+    }
 
     [HttpGet]
     public async Task<IActionResult> Book()
     {
+        var citizen = await _citizenService.GetByUserIdAsync(_userManager.GetUserId(User)!);
+        if (citizen == null) return RedirectToAction("Create", "Citizen");
         ViewBag.Centers = await _appointmentService.GetAllCentersAsync();
         ViewBag.Services = await _unitOfWork.GovernmentServices.GetActiveServicesAsync();
         return View(new BookAppointmentRequest());

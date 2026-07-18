@@ -64,14 +64,14 @@
 
         <!-- Profile Form -->
         <div class="lb-form-card">
-            <form asp-action="Create" method="post">
+            <form asp-action="Create" method="post" id="profileForm">
                 <div asp-validation-summary="ModelOnly" class="alert alert-danger"></div>
                 <div class="row">
                     <div class="col-md-6 mb-3">
                         <label asp-for="NationalId" class="form-label"></label>
                         <div class="input-group">
                             <span class="input-group-text"><i class="bi bi-card-text"></i></span>
-                            <input asp-for="NationalId" class="form-control" id="fNationalId" />
+                            <input asp-for="NationalId" class="form-control" id="fNationalId" data-val="false" />
                         </div>
                         <span asp-validation-for="NationalId" class="text-danger small"></span>
                     </div>
@@ -114,7 +114,7 @@
                     </div>
                     <span asp-validation-for="Address" class="text-danger small"></span>
                 </div>
-                <button type="submit" class="btn btn-lb-primary">
+                <button type="submit" class="btn btn-lb-primary" id="btnSaveProfile">
                     <i class="bi bi-check-lg me-1"></i>Save Profile
                 </button>
             </form>
@@ -136,7 +136,7 @@
 @section Scripts {
     <partial name="_ValidationScriptsPartial" />
     <script>
-        function setMode(mode) {
+                               function setMode(mode) {
             const scanArea = document.getElementById('scanArea');
             ['Scan','Manual'].forEach(m => {
                 const btn = document.getElementById('btn' + m);
@@ -171,7 +171,7 @@
             }
         }
 
-                setupBox('frontBox','frontFile','frontPreview','frontImg', f => {
+        setupBox('frontBox','frontFile','frontPreview','frontImg', f => {
             if (backFile && f.name === backFile.name && f.size === backFile.size) {
                 showMsg('warning', 'This image is already used as Back of ID. Please upload a different photo.');
                 return;
@@ -187,22 +187,59 @@
             backFile = f;
         });
 
-                       document.getElementById('btnExtract').addEventListener('click', async () => {
+        const KNOWN_NAME_TRANSLITERATIONS = {
+            'محمد': 'Mohammad', 'أحمد': 'Ahmad', 'علي': 'Ali', 'حسن': 'Hassan',
+            'حسين': 'Hussein', 'خالد': 'Khaled', 'ابراهيم': 'Ibrahim', 'إبراهيم': 'Ibrahim',
+            'الجمال': 'Al Jamal', 'الحسن': 'Al Hassan', 'الأسد': 'Al Assad',
+            'يوسف': 'Youssef', 'عمر': 'Omar', 'سامي': 'Sami', 'جورج': 'George',
+            'طوني': 'Tony', 'ريم': 'Reem', 'فاطمة': 'Fatima', 'مريم': 'Mariam',
+            'زينب': 'Zeinab', 'نور': 'Nour', 'سارة': 'Sara', 'ليلى': 'Layla', 'هيه': 'Hiba'
+        };
+
+        const LETTER_MAP = {
+            'ا':'a','أ':'a','إ':'i','آ':'aa','ب':'b','ت':'t','ث':'th','ج':'j','ح':'h',
+            'خ':'kh','د':'d','ذ':'th','ر':'r','ز':'z','س':'s','ش':'sh','ص':'s','ض':'d',
+            'ط':'t','ظ':'z','ع':'a','غ':'gh','ف':'f','ق':'q','ك':'k','ل':'l','م':'m',
+            'ن':'n','ه':'h','و':'w','ي':'y','ة':'a','ء':'','ى':'a'
+        };
+
+        function transliterate(word) {
+            if (!word) return word;
+            let w = word.trim();
+            let prefix = '';
+            if (w.startsWith('ال')) { prefix = 'Al '; w = w.slice(2); }
+            let out = '';
+            for (const ch of w) out += (LETTER_MAP[ch] ?? ch);
+            out = out.replace(/(.)\1+/g, '$1');
+            const result = prefix + out;
+            return result.charAt(0).toUpperCase() + result.slice(1);
+        }
+
+        async function translateNameToEnglish(firstAr, lastAr) {
+            const lookup = (val) => {
+                const trimmed = val?.trim();
+                if (!trimmed) return val;
+                return KNOWN_NAME_TRANSLITERATIONS[trimmed] || transliterate(trimmed);
+            };
+            return { first: lookup(firstAr), last: lookup(lastAr) };
+        }
+
+        document.getElementById('btnExtract').addEventListener('click', async () => {
             document.getElementById('ocrSpinner').classList.remove('d-none');
             document.getElementById('ocrMsg').classList.add('d-none');
 
             const token = document.querySelector('input[name="__RequestVerificationToken"]')?.value ?? '';
 
             try {
-                // Run front and back OCR in parallel
-                const requests = [];
+                const results = [];
 
                 if (frontFile) {
                     const fd = new FormData();
                     fd.append('DocumentType', 'NationalID');
                     fd.append('__RequestVerificationToken', token);
                     fd.append('IdImage', frontFile, 'front.jpg');
-                    requests.push(fetch('/AutoFill/UploadId', { method: 'POST', body: fd }));
+                    const r = await fetch('/AutoFill/UploadId', { method: 'POST', body: fd });
+                    results.push(r.ok ? await r.json() : {});
                 }
 
                 if (backFile) {
@@ -210,29 +247,60 @@
                     fd.append('DocumentType', 'NationalID');
                     fd.append('__RequestVerificationToken', token);
                     fd.append('IdImage', backFile, 'back.jpg');
-                    requests.push(fetch('/AutoFill/UploadId', { method: 'POST', body: fd }));
+                    const r = await fetch('/AutoFill/UploadId', { method: 'POST', body: fd });
+                    results.push(r.ok ? await r.json() : {});
                 }
 
-                const responses = await Promise.all(requests);
-                const results = await Promise.all(responses.map(r => r.ok ? r.json() : {}));
+                let frontData = frontFile ? results[0] : {};
+                let backData  = backFile  ? results[frontFile ? 1 : 0] : {};
 
-                // Merge results
-                const frontData = frontFile ? results[0] : {};
-                const backData  = backFile  ? results[frontFile ? 1 : 0] : {};
+                                if (frontFile && backFile) {
+            const frontHasName = !!(frontData.firstName || frontData.lastName);
+            const backHasName  = !!(backData.firstName || backData.lastName);
+            const frontHasLocation = !!(frontData.district || frontData.province || frontData.village);
+            const backHasLocation  = !!(backData.district || backData.province || backData.village);
 
-                // Fill fields
-                fill('fNationalId', frontData.documentNumberMasked || '');
-                fill('fDob',        backData.dateOfBirth?.substring(0, 10) || frontData.dateOfBirth?.substring(0, 10));
+                    if (!frontHasName && backHasName) {
+            showMsg('warning', 'It looks like the photos are swapped — the "Front" box shows the back, and the "Back" box shows the front. Please re-upload them in the correct boxes.');
+            document.getElementById('btnSaveProfile').disabled = true;
+            document.getElementById('ocrSpinner').classList.add('d-none');
+            return;
+        } else if (frontHasName && backHasName) {
+            showMsg('warning', 'Both photos show a name — they both look like the front of the ID. Please upload one front photo and one back photo.');
+            document.getElementById('btnSaveProfile').disabled = true;
+            document.getElementById('ocrSpinner').classList.add('d-none');
+            return;
+        } else if (!frontHasName && !backHasName && frontHasLocation && backHasLocation) {
+            showMsg('warning', 'Neither photo shows a name — they both look like the back of the ID. Please upload one front photo and one back photo.');
+            document.getElementById('btnSaveProfile').disabled = true;
+            document.getElementById('ocrSpinner').classList.add('d-none');
+            return;
+        }
+        }
+
+                const nameAr = { first: frontData.firstName || backData.firstName || '', last: frontData.lastName || backData.lastName || '' };
+                const nameEn = (nameAr.first || nameAr.last) ? await translateNameToEnglish(nameAr.first, nameAr.last) : nameAr;
+                fill('fFirstName', nameEn.first);
+                fill('fLastName', nameEn.last);
+
+                fill('fNationalId', frontData.documentNumberMasked || backData.documentNumberMasked || '');
+                        function realDate(d) {
+            if (!d) return null;
+            const s = d.substring(0, 10);
+            return (s && s !== '0001-01-01') ? s : null;
+        }
+        fill('fDob', realDate(backData.dateOfBirth) || realDate(frontData.dateOfBirth));
                 const addr = [backData.village, backData.district, backData.province].filter(Boolean).join(', ');
                 if (addr) fill('fAddress', addr);
 
-                const hasData = frontData.documentNumberMasked || backData.district || backData.dateOfBirth;
+                const hasData = frontData.documentNumberMasked || backData.district || backData.dateOfBirth || frontData.firstName;
                 showMsg(hasData ? 'success' : 'info',
-                    hasData ? 'Fields auto-filled! Please review before saving.'
-                            : 'Could not auto-read fields. Please fill in manually.');
-            } catch {
-                showMsg('warning', 'Could not read ID. Please fill in the fields manually.');
-            } finally {
+                hasData ? 'Fields auto-filled! Please review before saving.'
+                        : 'Could not auto-read fields. Please fill in manually.');
+            document.getElementById('btnSaveProfile').disabled = false;
+        } catch {
+            showMsg('warning', 'Could not read ID. Please fill in the fields manually.');
+        } finally {
                 document.getElementById('ocrSpinner').classList.add('d-none');
             }
         });
@@ -248,7 +316,18 @@
             el.innerHTML = `<i class="bi bi-${type==='success'?'check-circle':type==='warning'?'exclamation-triangle':'info-circle'} me-1"></i>${msg}`;
             el.classList.remove('d-none');
         }
-    </script>
+
+                document.getElementById('profileForm').addEventListener('submit', function (e) {
+            const isScanMode = document.getElementById('btnScan').classList.contains('active');
+            const idVal = document.getElementById('fNationalId').value.trim();
+            if (isScanMode && !idVal) {
+                e.preventDefault();
+                showMsg('warning', 'Please enter your National ID number, or click "Skip Scan" if you don\'t have your ID card yet.');
+                document.getElementById('fNationalId').scrollIntoView({ behavior: 'smooth', block: 'center' });
+            }
+        });
+    
+        </script>
 }
 
 

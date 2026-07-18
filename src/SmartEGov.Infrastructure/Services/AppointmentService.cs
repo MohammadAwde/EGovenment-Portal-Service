@@ -95,8 +95,14 @@ public class AppointmentService : IAppointmentService
         if (request.AppointmentDate.Date <= DateTime.Today)
             throw new InvalidOperationException("Appointment date must be in the future.");
 
-        if (request.AppointmentDate.DayOfWeek is DayOfWeek.Friday or DayOfWeek.Saturday)
+        if (request.AppointmentDate.DayOfWeek is DayOfWeek.Saturday or DayOfWeek.Sunday)
             throw new InvalidOperationException("Appointments are not available on weekends.");
+
+        if (request.AppointmentDate.DayOfWeek == DayOfWeek.Friday &&
+            !(request.TimeSlot.StartsWith("09") || request.TimeSlot.StartsWith("10") || request.TimeSlot.StartsWith("11")))
+        {
+            throw new InvalidOperationException("Friday appointments are only available in the morning, before 12:00.");
+        }
 
         var existing = await _appointments.GetByUserIdAsync(userId);
         if (existing.Any(a =>
@@ -115,6 +121,9 @@ public class AppointmentService : IAppointmentService
                 "This slot was just taken. Please choose another.");
         }
 
+        var existingForDay = await _appointments.GetByCenterAndDateAsync(request.ServiceCenterId, request.AppointmentDate.Date);
+        var queueNumber = existingForDay.Count() + 1;
+
         var appointment = new Appointment
         {
             UserId = userId,
@@ -124,6 +133,7 @@ public class AppointmentService : IAppointmentService
             TimeSlot = request.TimeSlot,
             Status = "Booked",
             ReferenceNumber = GenerateRef(),
+            QueueNumber = queueNumber,
             CreatedAt = DateTime.UtcNow
         };
 
@@ -254,6 +264,7 @@ public class AppointmentService : IAppointmentService
             TimeSlot = f.TimeSlot,
             Status = f.Status,
             ReferenceNumber = f.ReferenceNumber,
+            QueueNumber = f.QueueNumber,
             CreatedAt = f.CreatedAt,
             ServiceCenterName = f.ServiceCenter?.CenterName,
             ServiceCenterAddress = f.ServiceCenter?.Address,

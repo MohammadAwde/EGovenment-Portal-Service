@@ -47,13 +47,7 @@ public class CitizenController : Controller
     {
         var user = await _userManager.GetUserAsync(User);
         var dto = new CitizenDto();
-
-        if (user != null && !string.IsNullOrEmpty(user.FullName))
-        {
-            var parts = user.FullName.Trim().Split(' ', 2);
-            dto.FirstName = parts[0];
-            dto.LastName = parts.Length > 1 ? parts[1] : string.Empty;
-        }
+       
 
         return View(dto);
     }
