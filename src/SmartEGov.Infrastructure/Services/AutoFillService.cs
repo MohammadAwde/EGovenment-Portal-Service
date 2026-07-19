@@ -87,8 +87,8 @@ public class AutoFillService : IAutoFillService
     public async Task<AutoFillResultDto> ExtractFromOcrAsync(
         IFormFile idImage, string documentType, string userId)
     {
-        if (idImage.Length > 5 * 1024 * 1024)
-            throw new InvalidOperationException("Image file must be under 5 MB.");
+        if (idImage.Length > 15 * 1024 * 1024)
+            throw new InvalidOperationException("Image file must be under 15 MB.");
 
         var tempPath = Path.Combine(Path.GetTempPath(),
             $"{Guid.NewGuid()}{Path.GetExtension(idImage.FileName)}");
@@ -99,6 +99,7 @@ public class AutoFillService : IAutoFillService
         try
         {
             var ocrText = await RunOcrAsync(tempPath);
+            System.IO.File.AppendAllText(@"C:\Users\user\Downloads\ocr_debug.txt", $"=== {DateTime.Now} ===\n{ocrText}\n\n");
 
             if (string.IsNullOrWhiteSpace(ocrText))
                 return EmptyResult(documentType);
@@ -227,10 +228,27 @@ public class AutoFillService : IAutoFillService
 
         // ── MRZ first ─────────────────────────────────────────────────────
         var mrzLines = lines
-            .Where(l => Regex.IsMatch(l, @"^[A-Z0-9<]{28,30}$"))
+            .Select(l => l.Replace(" ", "").ToUpperInvariant())
+            .Where(l => l.Length >= 20 && Regex.IsMatch(l, @"^[A-Z0-9<]+$") && l.Count(c => c == '<') >= 3)
             .ToArray();
         if (mrzLines.Length >= 2)
             ParseMrz(mrzLines, result);
+
+        // Prefer a line explicitly labeled "Date of Birth" over any random date on the card
+        var dobLine = lines.FirstOrDefault(l => l.Contains("تاريخ الولادة"));
+        if (dobLine != null)
+        {
+            var m1 = Regex.Match(dobLine, @"(\d{4})[\/\-\.](\d{1,2})[\/\-\.](\d{1,2})");
+            var m2 = Regex.Match(dobLine, @"(\d{1,2})[\/\-\.](\d{1,2})[\/\-\.](\d{4})");
+            try
+            {
+                if (m1.Success)
+                    result.DateOfBirth = new DateTime(int.Parse(m1.Groups[1].Value), int.Parse(m1.Groups[2].Value), int.Parse(m1.Groups[3].Value));
+                else if (m2.Success)
+                    result.DateOfBirth = new DateTime(int.Parse(m2.Groups[3].Value), int.Parse(m2.Groups[2].Value), int.Parse(m2.Groups[1].Value));
+            }
+            catch { }
+        }
 
         // ── Line-by-line ──────────────────────────────────────────────────
         foreach (var line in lines)
@@ -261,12 +279,49 @@ public class AutoFillService : IAutoFillService
                 continue;
             }
 
-            // 12-digit ID number
-            if (string.IsNullOrEmpty(result.DocumentNumberMasked) &&
-                Regex.IsMatch(line.Trim(), @"^\d{12}$"))
+            // First Name
+            if (string.IsNullOrEmpty(result.FirstName) && line.Contains("الاسم") &&
+                !line.Contains("اسم الأب") && !line.Contains("اسم الأم"))
             {
-                result.DocumentNumberMasked = line.Trim();
+                var val = line.Replace("الاسم", "").Replace(":", "").Trim();
+                if (!string.IsNullOrEmpty(val)) result.FirstName = val;
                 continue;
+            }
+
+            // Last Name / Surname
+            if (string.IsNullOrEmpty(result.LastName) && (line.Contains("الشهرة") || line.Contains("اللقب")))
+            {
+                var val = line.Replace("الشهرة", "").Replace("اللقب", "").Replace(":", "").Trim();
+                if (!string.IsNullOrEmpty(val)) result.LastName = val;
+                continue;
+            }
+
+            // Father's Name
+            if (string.IsNullOrEmpty(result.FatherName) && line.Contains("اسم الأب"))
+            {
+                var val = line.Replace("اسم الأب", "").Replace(":", "").Trim();
+                if (!string.IsNullOrEmpty(val)) result.FatherName = val;
+                continue;
+            }
+
+            // Mother's Name
+            if (string.IsNullOrEmpty(result.MotherName) && line.Contains("اسم الأم"))
+            {
+                var val = line.Replace("اسم الأم", "").Replace(":", "").Trim();
+                if (!string.IsNullOrEmpty(val)) result.MotherName = val;
+                continue;
+            }
+
+            // ID number (accepts 6-12 digits, with or without spaces, anywhere in the line)
+            if (string.IsNullOrEmpty(result.DocumentNumberMasked))
+            {
+                var cleaned = line.Replace(" ", "").Replace("-", "");
+                var idm = Regex.Match(cleaned, @"\d{6,12}");
+                if (idm.Success && idm.Value.Length >= 6)
+                {
+                    result.DocumentNumberMasked = idm.Value;
+                    continue;
+                }
             }
 
             // Registry number
@@ -284,18 +339,17 @@ public class AutoFillService : IAutoFillService
                 }
             }
 
-            // Date yyyy/MM/dd
-            if (result.DateOfBirth == default)
+            // Date yyyy/MM/dd (fallback only — skip issue/expiry date lines)
+            if (result.DateOfBirth == default && !line.Contains("الإصدار") && !line.Contains("الانتهاء"))
             {
                 var dm = Regex.Match(line, @"(\d{4})[\/\-\.](\d{1,2})[\/\-\.](\d{1,2})");
-                if (dm.Success && int.TryParse(dm.Groups[1].Value, out var y) && y > 1900 && y < 2010)
+                if (dm.Success && int.TryParse(dm.Groups[1].Value, out var y) && y > 1900 && y < DateTime.Now.Year)
                 {
                     try { result.DateOfBirth = new DateTime(y, int.Parse(dm.Groups[2].Value), int.Parse(dm.Groups[3].Value)); } catch { }
                     if (result.DateOfBirth != default) continue;
                 }
-                // Date dd/MM/yyyy
                 var dm2 = Regex.Match(line, @"(\d{1,2})[\/\-\.](\d{1,2})[\/\-\.](\d{4})");
-                if (dm2.Success && int.TryParse(dm2.Groups[3].Value, out var y2) && y2 > 1900 && y2 < 2010)
+                if (dm2.Success && int.TryParse(dm2.Groups[3].Value, out var y2) && y2 > 1900 && y2 < DateTime.Now.Year)
                 {
                     try { result.DateOfBirth = new DateTime(y2, int.Parse(dm2.Groups[2].Value), int.Parse(dm2.Groups[1].Value)); } catch { }
                     if (result.DateOfBirth != default) continue;

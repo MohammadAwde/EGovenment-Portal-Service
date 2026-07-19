@@ -6,6 +6,7 @@ public class Appointment
     public string UserId { get; set; } = string.Empty;
     public int ServiceCenterId { get; set; }
     public int GovernmentServiceId { get; set; }
+    public int QueueNumber { get; set; }
     public DateTime AppointmentDate { get; set; }
     public string TimeSlot { get; set; } = string.Empty;
     public string Status { get; set; } = "Booked";

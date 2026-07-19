@@ -6,7 +6,6 @@ public class CitizenDto
 {
     public int Id { get; set; }
 
-    [Required]
     public string NationalId { get; set; } = string.Empty;
 
     [Required]
