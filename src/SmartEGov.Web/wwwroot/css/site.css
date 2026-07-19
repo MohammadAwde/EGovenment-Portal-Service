@@ -41,8 +41,8 @@
   --lb-space-4xl: 3.5rem;
 }
 
-/* Dark theme variables - toggled by adding .dark-theme to body */
-body.dark-theme {
+/* Dark theme variables - toggled by adding .dark-theme to html or body */
+html.dark-theme, body.dark-theme {
   --lb-body-bg: #0f1720;
   --lb-text: #e6eef6;
   --lb-muted: #b8c2cc;
@@ -50,11 +50,81 @@ body.dark-theme {
   --lb-white: #071018;
 }
 
-body.dark-theme a { color: #9fe7c6; }
-body.dark-theme .lb-navbar { background: linear-gradient(135deg,#0b3b2a 0%, #063629 100%); }
-body.dark-theme .card, body.dark-theme .lb-auth-card, body.dark-theme .lb-service-card { background: #071018; color: var(--lb-text); border-color: var(--lb-border); }
-body.dark-theme .lb-hero { background: linear-gradient(135deg,#052b20 0%, #07402e 60%); }
-body.dark-theme .alert { opacity: 0.95; }
+html.dark-theme a, body.dark-theme a { color: #9fe7c6; }
+html.dark-theme .lb-navbar, body.dark-theme .lb-navbar { background: linear-gradient(135deg,#0b3b2a 0%, #063629 100%); }
+html.dark-theme .card, body.dark-theme .card, html.dark-theme .lb-auth-card, body.dark-theme .lb-auth-card, html.dark-theme .lb-service-card, body.dark-theme .lb-service-card { background: #071018; color: var(--lb-text); border-color: var(--lb-border); }
+html.dark-theme .lb-hero, body.dark-theme .lb-hero { background: linear-gradient(135deg,#052b20 0%, #07402e 60%); }
+html.dark-theme .alert, body.dark-theme .alert { opacity: 0.95; }
+/* Dark mode fixes: ensure visibility for topbar, footer, cards and elements using .text-white */
+html.dark-theme .lb-topbar,
+body.dark-theme .lb-topbar {
+  background: #071018;
+  color: var(--lb-text);
+  border-bottom-color: var(--lb-border);
+}
+
+html.dark-theme .lb-topbar a,
+body.dark-theme .lb-topbar a,
+html.dark-theme .lb-topbar span,
+body.dark-theme .lb-topbar span {
+  color: var(--lb-text) !important;
+}
+
+/* Make hotline / email links stand out */
+html.dark-theme .lb-topbar a[href^="tel"],
+body.dark-theme .lb-topbar a[href^="tel"],
+html.dark-theme .lb-topbar a[href^="mailto"],
+body.dark-theme .lb-topbar a[href^="mailto"] {
+  color: var(--lb-gold) !important;
+}
+
+/* Footer readability */
+html.dark-theme .lb-footer,
+body.dark-theme .lb-footer {
+  background: transparent;
+  color: var(--lb-text) !important;
+}
+html.dark-theme .lb-footer a,
+body.dark-theme .lb-footer a {
+  color: var(--lb-text) !important;
+  opacity: 0.95;
+}
+
+/* Card header and card body in dark theme */
+html.dark-theme .card-header,
+body.dark-theme .card-header {
+  background: var(--lb-white);
+  color: var(--lb-text);
+  border-bottom-color: var(--lb-green);
+}
+
+html.dark-theme .card,
+body.dark-theme .card {
+  background: #071018;
+  color: var(--lb-text);
+  border-color: var(--lb-border);
+}
+
+/* Ensure elements using utility .text-white are readable in dark theme */
+html.dark-theme .text-white,
+body.dark-theme .text-white {
+  color: var(--lb-text) !important;
+}
+
+/* Adjust outline/btn styles so toggle is visible */
+html.dark-theme .btn-outline-light,
+body.dark-theme .btn-outline-light {
+  color: var(--lb-text) !important;
+  border-color: rgba(255,255,255,0.12) !important;
+}
+
+/* Navbar brand adjustments */
+html.dark-theme .navbar-brand,
+body.dark-theme .navbar-brand,
+html.dark-theme .navbar-brand *,
+body.dark-theme .navbar-brand * {
+  color: var(--lb-text) !important;
+}
 
 /* Floating label tweaks for modern forms */
 .form-floating > .form-control,
@@ -81,6 +151,12 @@ body.dark-theme .alert { opacity: 0.95; }
   animation: lb-spin .8s linear infinite;
 }
 @keyframes lb-spin { to { transform: rotate(360deg); } }
+
+/* ensure background and text color variables are used for body */
+html.dark-theme body, body.dark-theme {
+  background: var(--lb-body-bg);
+  color: var(--lb-text);
+}
 
 html { 
   font-size: 15px; 
@@ -424,7 +500,7 @@ a:focus {
   content: '';
   position: absolute;
   inset: 0;
-  background: url("data:image/svg+xml,%3Csvg width='60' height='60' viewBox='0 0 60 60' xmlns='http://www.w3.org/2000/svg'%3E%3Cg fill='none'%3E%3Cg fill='%23ffffff' fill-opacity='0.04'%3E%3Cpath d='M36 34v-4h-2v4h-4v2h4v4h2v-4h4v-2h-4zm0-30V0h-2v4h-4v2h4v4h2V6h4V4h-4zM6 34v-4H4v4H0v2h4v4h2v-4h4v-2H6zM6 4V0H4v4H0v2h4v4h2V6h4V4H6z'/%3E%3C/g%3E%3C/g%3E%3C/svg%3E");
+  background: url("data:image/svg+xml,%3Csvg width='60' height='60' viewBox='0 0 60 60' xmlns='http://www.w3.org/2000/svg'%3E%3Cg fill='none'%3E%3Cg fill='%23ffffff' fill-opacity='0.04'%3E%3Cpath d='M36 34v-4h-2v4h-4v2h4v4h2v-4h4v-2h-4zM36 6V0h-2v4h-4v2h4v4h2V6h4V4h-4zM6 34v-4H4v4H0v2h4v4h2v-4h4v-2H6zM6 4V0H4v4H0v2h4v4h2V6h4V4H6z'/%3E%3C/g%3E%3C/g%3E%3C/svg%3E");
   z-index: 0;
 }
 
@@ -1329,7 +1405,7 @@ body.dark-theme .admin-actions .btn {
 }
 
 .lb-receipt-card .receipt-body {
-  padding: var(--lb-space-lg);
+  padding: var("--lb-space-lg");
 }
 
 /* ========== Spinner ========== */
@@ -1375,3 +1451,163 @@ body.dark-theme .admin-actions .btn {
   }
 
   .lb-footer .row > div {
+    text-align: center;
+  }
+}
+
+@media (max-width: 576px) {
+  .lb-navbar .nav-link {
+    padding: .6rem !important;
+    font-size: 0.85rem;
+  }
+
+  .lb-stat-card {
+    padding: 1.5rem;
+  }
+
+  .lb-stat-card .stat-number {
+    font-size: 1.8rem;
+  }
+
+  .lb-stat-card .stat-label {
+    font-size: 0.7rem;
+  }
+
+  .progress {
+    height: 0.4rem;
+  }
+
+  .progress-bar {
+    background: var(--lb-green);
+  }
+}
+
+/* High contract mode - for accessibility */
+@media (forced-colors: active) {
+  :root {
+    --lb-green: #008000;
+    --lb-green-dark: #005700;
+    --lb-green-light: #e1f5e1;
+    --lb-red: #ff0000;
+    --lb-red-light: #ffe1e1;
+    --lb-gold: #c8a951;
+    --lb-gold-light: #faf5e8;
+    --lb-white: #ffffff;
+    --lb-body-bg: #ffffff;
+    --lb-text: #000000;
+    --lb-muted: #666666;
+    --lb-border: #cccccc;
+    --lb-radius: .5rem;
+    --lb-radius-lg: 1rem;
+    --lb-shadow: 0 2px 8px rgba(0,0,0,.06);
+    --lb-shadow-md: 0 4px 16px rgba(0,0,0,.08);
+    --lb-shadow-lg: 0 12px 32px rgba(0,0,0,.12);
+    --lb-shadow-xl: 0 20px 48px rgba(0,0,0,.16);
+    --lb-transition: .25s cubic-bezier(.4,.0,.2,1);
+    --lb-transition-fast: .15s ease;
+  }
+
+  html {
+    background: #ffffff;
+  }
+
+  body {
+    color: #000000;
+    background-color: #ffffff;
+  }
+
+  a {
+    color: #006233;
+  }
+
+  a:hover, a:focus {
+    color: #004225;
+    text-decoration: underline;
+  }
+
+  .btn-lb-primary {
+    background: #006233;
+    color: #ffffff;
+  }
+
+  .btn-lb-primary:hover:not(:disabled) {
+    background: #004225;
+    color: #ffffff;
+    transform: translateY(-2px);
+    box-shadow: none;
+  }
+
+  .btn-lb-outline {
+    background: transparent;
+    color: #006233;
+    border: 2px solid #006233;
+  }
+
+  .btn-lb-outline:hover:not(:disabled) {
+    background: #006233;
+    color: #ffffff;
+  }
+
+  .btn-lb-gold {
+    background: #c8a951;
+    color: #005700;
+  }
+
+  .btn-lb-gold:hover:not(:disabled) {
+    background: #b79940;
+    color: #ffffff;
+    transform: translateY(-2px);
+    box-shadow: none;
+  }
+
+  .lb-navbar {
+    background: #006233;
+  }
+
+  .lb-navbar .nav-link {
+    color: #ffffff;
+  }
+
+  .lb-topbar {
+    background: #ffffff;
+    color: #000000;
+  }
+
+  .lb-topbar a {
+    color: #000000 !important;
+  }
+
+  .lb-footer {
+    background: #002a15;
+    color: #ffffff;
+  }
+
+  /* Adjust specific components for high contrast */
+  .card {
+    border: 1px solid #cccccc;
+  }
+
+  .alert {
+    border: 1px solid;
+  }
+
+  .badge {
+    padding: 0.4rem 0.7rem;
+    font-size: 0.8rem;
+  }
+
+  .table {
+    width: 100%;
+    border-collapse: collapse;
+  }
+
+  .table thead th {
+    background: #f2f2f2;
+    color: #333;
+  }
+
+  .table tbody td {
+    padding: 0.75rem;
+    border-top: 1px solid #e1e1e1;
+  }
+}

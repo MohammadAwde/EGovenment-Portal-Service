@@ -19,7 +19,6 @@ public class AccountController : Controller
     private readonly IAuditLogService _auditLogService;
     private readonly INotificationService _notificationService;
     private readonly IEmailSender _emailSender;
-    private readonly IMailtrapService _mailtrapService;
     private readonly IWebHostEnvironment _env;
     private readonly IUnitOfWork _unitOfWork;
     private readonly ILogger<AccountController> _logger;
@@ -32,7 +31,6 @@ public class AccountController : Controller
         IAuditLogService auditLogService,
         INotificationService notificationService,
         IEmailSender emailSender,
-        IMailtrapService mailtrapService,
         IWebHostEnvironment env,
         IUnitOfWork unitOfWork,
         IAutoFillService autoFillService,
@@ -44,7 +42,6 @@ public class AccountController : Controller
         _auditLogService = auditLogService;
         _notificationService = notificationService;
         _emailSender = emailSender;
-        _mailtrapService = mailtrapService;
         _env = env;
         _unitOfWork = unitOfWork;
         _autoFillService = autoFillService;
@@ -171,21 +168,7 @@ public class AccountController : Controller
 
             try
             {
-                var sent = false;
-                if (_mailtrapService != null && !string.IsNullOrWhiteSpace(user.Email))
-                {
-                    try
-                    {
-                        sent = await _mailtrapService.SendAsync(user.Email, "Password Reset", html);
-                    }
-                    catch (Exception ex)
-                    {
-                        _logger.LogWarning(ex, "Mailtrap send failed, falling back to configured email sender.");
-                        sent = false;
-                    }
-                }
-
-                if (!sent && !string.IsNullOrWhiteSpace(user.Email))
+                if (!string.IsNullOrWhiteSpace(user.Email))
                 {
                     await _emailSender.SendEmailAsync(user.Email, "Password Reset", html);
                 }

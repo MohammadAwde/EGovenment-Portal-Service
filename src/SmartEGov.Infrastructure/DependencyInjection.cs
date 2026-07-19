@@ -17,15 +17,15 @@ public static class DependencyInjection
         services.AddDbContext<ApplicationDbContext>(options =>
             options.UseSqlServer(configuration.GetConnectionString("DefaultConnection")));
 
-        var twilioSettings = new TwilioSettings();
-        // Bind Twilio configuration
-        configuration.GetSection("Twilio").Bind(twilioSettings);
-        services.AddSingleton(twilioSettings);
-
         // Bind SMTP settings
         var smtpSettings = new SmtpSettings();
         configuration.GetSection("SmtpSettings").Bind(smtpSettings);
         services.AddSingleton(smtpSettings);
+
+        // Bind Brevo settings (for SMS)
+        var brevoSettings = new BrevoSettings();
+        configuration.GetSection("Brevo").Bind(brevoSettings);
+        services.AddSingleton(brevoSettings);
 
         services.AddAutoMapper(cfg => cfg.AddMaps(typeof(MappingProfile).Assembly));
 
@@ -52,7 +52,6 @@ public static class DependencyInjection
         services.AddScoped<IWorkflowService, WorkflowService>();
         services.AddScoped<INotificationService, NotificationService>();
         services.AddScoped<IEmailSender, SmtpEmailService>();
-        services.AddScoped<IMailtrapService, MailtrapService>();
         services.AddScoped<IAuditLogService, AuditLogService>();
         services.AddScoped<IDashboardService, DashboardService>();
         services.AddScoped<IPaymentService, PaymentService>();
@@ -61,6 +60,11 @@ public static class DependencyInjection
         services.AddScoped<IAppointmentService, AppointmentService>();
         services.AddScoped<IAutoFillService, AutoFillService>();
         services.AddScoped<IPublicHolidayRepository, PublicHolidayRepository>();
+
+        // Register Brevo SMS service
+        services.AddHttpClient<BrevoSmsService>();
+        services.AddScoped<IBrevoSmsService, BrevoSmsService>();
+
         services.AddHostedService<AppointmentReminderService>();
 
         return services;

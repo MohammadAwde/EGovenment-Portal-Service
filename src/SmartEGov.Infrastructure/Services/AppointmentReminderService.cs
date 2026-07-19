@@ -45,7 +45,7 @@ public class AppointmentReminderService : BackgroundService
     {
         using var scope = _scopeFactory.CreateScope();
         var ctx = scope.ServiceProvider.GetRequiredService<ApplicationDbContext>();
-        var mailtrap = scope.ServiceProvider.GetRequiredService<IMailtrapService>();
+        var emailSender = scope.ServiceProvider.GetRequiredService<IEmailSender>();
 
         var tomorrow = DateTime.UtcNow.Date.AddDays(1);
 
@@ -67,7 +67,7 @@ public class AppointmentReminderService : BackgroundService
         {
             try
             {
-                await SendReminderEmailAsync(mailtrap, apt);
+                await SendReminderEmailAsync(emailSender, apt);
 
                 // Log the reminder
                 ctx.AppointmentReminderLogs.Add(new AppointmentReminderLog
@@ -88,7 +88,7 @@ public class AppointmentReminderService : BackgroundService
         await ctx.SaveChangesAsync();
     }
 
-    private async Task SendReminderEmailAsync(IMailtrapService mailtrap, Appointment apt)
+    private async Task SendReminderEmailAsync(IEmailSender emailSender, Appointment apt)
     {
         var subject = $"Appointment Reminder — {apt.ReferenceNumber}";
         var body = $@"
@@ -118,6 +118,7 @@ public class AppointmentReminderService : BackgroundService
   </div>
 </div>";
 
-        await mailtrap.SendAsync(apt.User.Email!, subject, body);
+        if (!string.IsNullOrWhiteSpace(apt.User.Email))
+            await emailSender.SendEmailAsync(apt.User.Email!, subject, body);
     }
 }

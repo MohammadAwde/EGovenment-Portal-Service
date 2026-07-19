@@ -5,10 +5,18 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>@ViewData["Title"] - Lebanese E-Government Portal</title>
     <script>
+        // Apply persisted language direction
         if (localStorage.getItem('smartegov_lang') === 'ar') {
             document.documentElement.dir = 'rtl';
             document.documentElement.lang = 'ar';
         }
+        // Apply persisted dark mode early to avoid flash
+        try {
+            var dark = localStorage.getItem('smartegov:dark');
+            if (dark === '1' || (dark === null && window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches)) {
+                document.documentElement.classList.add('dark-theme');
+            }
+        } catch (e) { /* ignore */ }
     </script>
     <link rel="stylesheet" href="~/lib/bootstrap/dist/css/bootstrap.min.css" />
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.min.css" crossorigin="anonymous" />
@@ -55,6 +63,11 @@
             </div>
             <div class="d-flex align-items-center gap-2 small">
                 <partial name="_LanguageToggle" />
+                <!-- Dark mode toggle -->
+                <button id="toggleDarkMode" class="btn btn-sm btn-outline-secondary" title="Toggle dark mode" aria-pressed="false" style="display:inline-flex;align-items:center;gap:.35rem;">
+                    <i class="bi bi-moon-fill"></i>
+                    <span class="d-none d-md-inline">Dark</span>
+                </button>
                 @if (isLoggedIn)
                 {
                     <span>@User.Identity!.Name</span>

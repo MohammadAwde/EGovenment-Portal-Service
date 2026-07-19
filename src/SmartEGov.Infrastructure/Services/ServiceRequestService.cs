@@ -10,9 +10,6 @@ using SmartEGov.Application.Services;
 using Microsoft.AspNetCore.Http;
 using SmartEGov.Domain.Entities;
 using SmartEGov.Domain.Enums;
-using Twilio;
-using Twilio.Rest.Api.V2010.Account;
-using Twilio.Types;
 
 namespace SmartEGov.Infrastructure.Services;
 
@@ -24,7 +21,6 @@ public class ServiceRequestService : IServiceRequestService
     private readonly IWorkflowService _workflowService;
     private readonly IMapper _mapper;
     private readonly ILogger<ServiceRequestService> _logger;
-    private readonly TwilioSettings _twilioSettings;
     private readonly IDocumentService _documentService;
 
     public ServiceRequestService(
@@ -34,7 +30,6 @@ public class ServiceRequestService : IServiceRequestService
         IWorkflowService workflowService,
         IMapper mapper,
         IDocumentService documentService,
-        TwilioSettings twilioSettings,
         ILogger<ServiceRequestService> logger)
     {
         _unitOfWork = unitOfWork;
@@ -43,7 +38,6 @@ public class ServiceRequestService : IServiceRequestService
         _workflowService = workflowService;
         _mapper = mapper;
         _documentService = documentService;
-        _twilioSettings = twilioSettings;
         _logger = logger;
     }
 
@@ -260,65 +254,6 @@ public class ServiceRequestService : IServiceRequestService
         {
             await _notificationService.SendAsync(request.Citizen.UserId, "Request Completed",
                 $"Your service request {request.ReferenceNumber} has been completed. The final document is now available for download.");
-
-            // Send WhatsApp via Twilio
-            try
-            {
-                var citizen = request.Citizen;
-                var phone = citizen?.PhoneNumber;
-                if (!string.IsNullOrWhiteSpace(phone))
-                {
-                    string NormalizePhone(string input)
-                    {
-                        if (string.IsNullOrWhiteSpace(input)) return input ?? string.Empty;
-                        var trimmed = input.Trim();
-                        var chars = trimmed.Where(c => char.IsDigit(c) || c == '+').ToArray();
-                        var cleaned = new string(chars);
-                        if (cleaned.StartsWith("+")) return cleaned;
-                        if (cleaned.StartsWith("00")) return "+" + cleaned.Substring(2);
-                        var dc = _twilioSettings.DefaultCountryCode?.Trim();
-                        if (!string.IsNullOrWhiteSpace(dc))
-                        {
-                            if (!dc.StartsWith("+")) dc = "+" + dc;
-                            if (cleaned.StartsWith("0"))
-                                return dc + cleaned.Substring(1);
-                            return dc + cleaned;
-                        }
-                        return cleaned;
-                    }
-
-                    var toNormalized = NormalizePhone(phone);
-                    var toWhatsapp = "whatsapp:" + toNormalized;
-                    var fromWhatsapp = _twilioSettings.FromPhoneNumber?.Trim();
-                    if (!string.IsNullOrWhiteSpace(fromWhatsapp) && !fromWhatsapp.StartsWith("whatsapp:"))
-                        fromWhatsapp = "whatsapp:" + fromWhatsapp;
-
-                    if (!string.IsNullOrWhiteSpace(_twilioSettings.AccountSid) && !string.IsNullOrWhiteSpace(_twilioSettings.AuthToken))
-                    {
-                        TwilioClient.Init(_twilioSettings.AccountSid, _twilioSettings.AuthToken);
-
-                        var message = await MessageResource.CreateAsync(
-                            body: $"Your service request {request.ReferenceNumber} has been completed. Download the final document from your account.",
-                            from: new PhoneNumber(fromWhatsapp),
-                            to: new PhoneNumber(toWhatsapp)
-                        );
-
-                        _logger?.LogInformation("WhatsApp message sent to {To}. SID={Sid}", toWhatsapp, message.Sid);
-                    }
-                    else
-                    {
-                        _logger?.LogWarning("Twilio credentials not configured; cannot send WhatsApp message.");
-                    }
-                }
-                else
-                {
-                    _logger?.LogInformation("Citizen {CitizenId} has no phone; skipping WhatsApp.", request.CitizenId);
-                }
-            }
-            catch (Exception ex)
-            {
-                _logger?.LogError(ex, "Failed to send WhatsApp notification for ServiceRequest {RequestId}", request.Id);
-            }
         }
         else
         {

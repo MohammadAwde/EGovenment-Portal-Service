@@ -12,14 +12,16 @@ public class NotificationService : INotificationService
 {
     private readonly IUnitOfWork _unitOfWork;
     private readonly IEmailSender _emailSender;
+    private readonly IBrevoSmsService _brevoSms;
     private readonly UserManager<ApplicationUser> _userManager;
     private readonly IMapper _mapper;
     private readonly ILogger<NotificationService> _logger;
 
-    public NotificationService(IUnitOfWork unitOfWork, IEmailSender emailSender, UserManager<ApplicationUser> userManager, IMapper mapper, ILogger<NotificationService> logger)
+    public NotificationService(IUnitOfWork unitOfWork, IEmailSender emailSender, IBrevoSmsService brevoSms, UserManager<ApplicationUser> userManager, IMapper mapper, ILogger<NotificationService> logger)
     {
         _unitOfWork = unitOfWork;
         _emailSender = emailSender;
+        _brevoSms = brevoSms;
         _userManager = userManager;
         _mapper = mapper;
         _logger = logger;
@@ -43,7 +45,19 @@ public class NotificationService : INotificationService
         {
             if (!string.IsNullOrWhiteSpace(citizen.PhoneNumber))
             {
-                _logger?.LogDebug("Citizen {UserId} has phone number {Phone}; SMS notifications removed in favor of Twilio WhatsApp sending on completion.", userId, citizen.PhoneNumber);
+                try
+                {
+                    var smsText = title + " - " + (message.Length > 200 ? message.Substring(0, 197) + "..." : message);
+                    var sent = await _brevoSms.SendSmsAsync(citizen.PhoneNumber, smsText);
+                    if (sent)
+                        _logger.LogInformation("Sent SMS to {Phone} for user {UserId}", citizen.PhoneNumber, userId);
+                    else
+                        _logger.LogWarning("Failed to send SMS to {Phone} for user {UserId}", citizen.PhoneNumber, userId);
+                }
+                catch (Exception ex)
+                {
+                    _logger.LogError(ex, "Exception while sending SMS to {Phone} for user {UserId}", citizen.PhoneNumber, userId);
+                }
             }
             else
             {

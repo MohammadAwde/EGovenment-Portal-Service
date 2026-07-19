@@ -1,10 +1,12 @@
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.Logging;
 using SmartEGov.Application.Services;
-using System.Net.Http.Headers;
-using System.Text;
-using System.Text.Json;
 using System.Text.RegularExpressions;
+using MimeKit;
+using MailKit.Net.Smtp;
+using MailKit.Security;
+using MailKit;
+using System.IO;
 
 namespace SmartEGov.Infrastructure.Services;
 
@@ -17,86 +19,120 @@ public class SmtpSettings
     public string FromEmail { get; set; } = "no-reply@smartegov.local";
     public string UserName { get; set; } = "";
     public string Password { get; set; } = "";
+    public string? ProtocolLogPath { get; set; }
 }
 
 public class SmtpEmailService : IEmailSender
 {
     private readonly SmtpSettings _settings;
     private readonly ILogger<SmtpEmailService> _logger;
-    private readonly string? _mailtrapApiToken;
-    private readonly IConfiguration _configuration;
 
     public SmtpEmailService(IConfiguration configuration, ILogger<SmtpEmailService> logger)
     {
         _settings = new SmtpSettings();
         configuration.GetSection("SmtpSettings").Bind(_settings);
-        _mailtrapApiToken = configuration["Mailtrap:ApiToken"];
-        _configuration = configuration;
         _logger = logger;
+
+        // default protocol log path if not set
+        if (string.IsNullOrWhiteSpace(_settings.ProtocolLogPath))
+            _settings.ProtocolLogPath = Path.Combine("logs", "mailkit-protocol.log");
     }
 
     public async Task SendEmailAsync(string to, string subject, string htmlMessage)
     {
         try
         {
-            // If Mailtrap API token is configured, prefer using Mailtrap Send API over raw SMTP
-            if (!string.IsNullOrWhiteSpace(_mailtrapApiToken))
+            var message = new MimeMessage();
+            message.From.Add(new MailboxAddress(_settings.FromName, _settings.FromEmail));
+            message.To.Add(MailboxAddress.Parse(to));
+            message.Subject = subject ?? string.Empty;
+
+            var builder = new BodyBuilder();
+            if (!string.IsNullOrWhiteSpace(htmlMessage))
             {
-                using var http = new System.Net.Http.HttpClient();
-                http.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", _mailtrapApiToken);
-
-                var text = Regex.Replace(htmlMessage ?? string.Empty, "<.*?>", string.Empty);
-                var payload = new
-                {
-                    from = new { email = _settings.FromEmail, name = _settings.FromName },
-                    to = new[] { new { email = to } },
-                    subject = subject,
-                    html = htmlMessage,
-                    text = text
-                };
-
-                var json = JsonSerializer.Serialize(payload);
-                using var content = new StringContent(json, Encoding.UTF8, "application/json");
-
-                var endpoint = _configuration["Mailtrap:SendEndpoint"] ?? "https://send.api.mailtrap.io/api/send";
-                var resp = await http.PostAsync(endpoint, content);
-                if (!resp.IsSuccessStatusCode)
-                {
-                    var body = await resp.Content.ReadAsStringAsync();
-                    _logger.LogError("Mailtrap Send API responded with {Status}: {Body}", resp.StatusCode, body);
-                }
-                else
-                {
-                    _logger.LogInformation("Email sent via Mailtrap to {To}.", to);
-                }
-
-                return;
+                builder.HtmlBody = htmlMessage;
+                // Also provide a plain-text fallback
+                var text = Regex.Replace(htmlMessage, "<.*?>", string.Empty);
+                builder.TextBody = text;
+            }
+            else
+            {
+                builder.TextBody = string.Empty;
             }
 
-            // Fallback to SMTP
-            using var msg = new System.Net.Mail.MailMessage();
-            msg.From = new System.Net.Mail.MailAddress(_settings.FromEmail, _settings.FromName);
-            msg.To.Add(new System.Net.Mail.MailAddress(to));
-            msg.Subject = subject;
-            msg.Body = htmlMessage;
-            msg.IsBodyHtml = true;
+            message.Body = builder.ToMessageBody();
 
-            using var client = new System.Net.Mail.SmtpClient(_settings.Host, _settings.Port)
+            // Ensure logs directory exists for protocol logs
+            try
             {
-                EnableSsl = _settings.EnableSsl
-            };
+                var logDir = Path.GetDirectoryName(_settings.ProtocolLogPath) ?? "logs";
+                if (!Directory.Exists(logDir)) Directory.CreateDirectory(logDir);
+            }
+            catch (Exception ex)
+            {
+                _logger.LogWarning(ex, "Unable to ensure protocol log directory exists: {Path}", _settings.ProtocolLogPath);
+            }
 
+            using var client = new MailKit.Net.Smtp.SmtpClient(new ProtocolLogger(_settings.ProtocolLogPath!));
+
+            // Determine secure socket options
+            SecureSocketOptions socketOptions = SecureSocketOptions.Auto;
+            if (_settings.EnableSsl)
+            {
+                if (_settings.Port == 465)
+                    socketOptions = SecureSocketOptions.SslOnConnect;
+                else
+                    socketOptions = SecureSocketOptions.StartTls;
+            }
+            else
+            {
+                socketOptions = SecureSocketOptions.StartTlsWhenAvailable;
+            }
+
+            _logger.LogInformation("Connecting to SMTP {Host}:{Port} (SSL={EnableSsl}, SocketOptions={SocketOptions})", _settings.Host, _settings.Port, _settings.EnableSsl, socketOptions);
+
+            // Connect
+            await client.ConnectAsync(_settings.Host, _settings.Port, socketOptions);
+            _logger.LogInformation("SMTP connected: {Host}:{Port}", _settings.Host, _settings.Port);
+
+            // Authenticate if credentials provided
             if (!string.IsNullOrWhiteSpace(_settings.UserName))
             {
-                client.Credentials = new System.Net.NetworkCredential(_settings.UserName, _settings.Password);
+                try
+                {
+                    _logger.LogInformation("Authenticating as {User}", _settings.UserName);
+                    await client.AuthenticateAsync(_settings.UserName, _settings.Password);
+                    _logger.LogInformation("SMTP authenticate succeeded for {User}", _settings.UserName);
+                }
+                catch (AuthenticationException aex)
+                {
+                    _logger.LogError(aex, "SMTP authentication failed for {User}", _settings.UserName);
+                    throw;
+                }
+                catch (SmtpCommandException scex)
+                {
+                    _logger.LogError(scex, "SMTP command failed during authentication: {Response}", scex.Message);
+                    throw;
+                }
+                catch (Exception ex)
+                {
+                    _logger.LogError(ex, "Unexpected error during SMTP authentication");
+                    throw;
+                }
             }
 
-            // Send asynchronously
-            await client.SendMailAsync(msg);
+            _logger.LogInformation("Sending message to {To}", to);
+            await client.SendAsync(message);
+            _logger.LogInformation("Message send completed to {To}", to);
+
+            await client.DisconnectAsync(true);
+            _logger.LogInformation("SMTP disconnected");
         }
         catch (Exception ex)
         {
             _logger.LogError(ex, "Failed to send email to {To}", to);
+            // Re-throw so callers/tests can detect errors if desired. Comment out if undesirable.
+            throw;
         }
     }
 }
