@@ -5,6 +5,8 @@ using SmartEGov.Application.Services;
 using Newtonsoft.Json.Linq;
 using Stripe;
 using Stripe.Checkout;
+using System.Net.Http;
+using System.Net.Sockets;
 
 namespace SmartEGov.Web.Controllers;
 
@@ -31,6 +33,45 @@ public class StripeWebhookController : ControllerBase
         _auditLogService = auditLogService;
         _configuration = configuration;
         _logger = logger;
+    }
+
+    // Simple retry helper for transient network errors when calling Stripe SDK
+    private static async Task<T?> TryWithRetries<T>(Func<Task<T>> action, ILogger logger, int maxAttempts = 3, int initialDelayMs = 500)
+        where T : class
+    {
+        var attempt = 0;
+        var delay = initialDelayMs;
+        while (true)
+        {
+            attempt++;
+            try
+            {
+                return await action();
+            }
+            catch (HttpRequestException hre)
+            {
+                logger.LogWarning(hre, "HTTP error on attempt {Attempt} when calling Stripe: {Message}", attempt, hre.Message);
+            }
+            catch (SocketException se)
+            {
+                logger.LogWarning(se, "Socket error on attempt {Attempt} when calling Stripe: {Message}", attempt, se.Message);
+            }
+            catch (Exception ex)
+            {
+                // Non-transient - rethrow
+                logger.LogError(ex, "Non-retryable error when calling Stripe API.");
+                throw;
+            }
+
+            if (attempt >= maxAttempts)
+            {
+                logger.LogError("Exceeded max retry attempts ({MaxAttempts}) for Stripe API call.", maxAttempts);
+                return null;
+            }
+
+            try { await Task.Delay(delay); } catch { }
+            delay *= 2;
+        }
     }
 
     [HttpPost]
@@ -104,10 +145,10 @@ public class StripeWebhookController : ControllerBase
                     Session? fullSession = null;
                     try
                     {
-                        fullSession = await sessionService.GetAsync(sessionId, new SessionGetOptions
+                        fullSession = await TryWithRetries(async () => await sessionService.GetAsync(sessionId, new SessionGetOptions
                         {
                             Expand = new List<string> { "payment_intent", "payment_intent.charges.data.payment_method_details.card" }
-                        });
+                        }), _logger);
                     }
                     catch (Exception ex)
                     {
@@ -142,10 +183,10 @@ public class StripeWebhookController : ControllerBase
                     {
                         try
                         {
-                            intent = await piService.GetAsync(paymentIntentId, new PaymentIntentGetOptions
+                            intent = await TryWithRetries(async () => await piService.GetAsync(paymentIntentId, new PaymentIntentGetOptions
                             {
                                 Expand = new List<string> { "charges.data.payment_method_details.card" }
-                            });
+                            }), _logger);
                         }
                         catch (Exception ex)
                         {
