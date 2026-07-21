@@ -102,6 +102,7 @@ public class AdminController : Controller
             Category = model.Category,
             Fee = model.Fee,
             EstimatedDays = model.EstimatedDays,
+            SlotDurationMinutes = model.SlotDurationMinutes,
             IsActive = model.IsActive,
             ApprovalWorkflowId = model.ApprovalWorkflowId
         };
@@ -126,6 +127,7 @@ public class AdminController : Controller
             Category = service.Category,
             Fee = service.Fee,
             EstimatedDays = service.EstimatedDays,
+            SlotDurationMinutes = service.SlotDurationMinutes,
             IsActive = service.IsActive,
             ApprovalWorkflowId = service.ApprovalWorkflowId
         };
@@ -154,6 +156,7 @@ public class AdminController : Controller
         service.Category = model.Category;
         service.Fee = model.Fee;
         service.EstimatedDays = model.EstimatedDays;
+        service.SlotDurationMinutes = model.SlotDurationMinutes;
         service.IsActive = model.IsActive;
         service.ApprovalWorkflowId = model.ApprovalWorkflowId;
 
@@ -222,6 +225,38 @@ public class AdminController : Controller
             : "Officer assigned to service successfully.";
         TempData["Success"] = message;
         return RedirectToAction("OfficerAssignments");
+    }
+    [HttpGet]
+    public async Task<IActionResult> ServiceCenters()
+    {
+        var centers = await _unitOfWork.ServiceCenters.GetAllAsync();
+        return View(centers);
+    }
+
+    [HttpGet]
+    public async Task<IActionResult> EditCenter(int id)
+    {
+        var center = await _unitOfWork.ServiceCenters.GetByIdAsync(id);
+        if (center == null) return NotFound();
+        return View(center);
+    }
+
+    [HttpPost]
+    [ValidateAntiForgeryToken]
+    public async Task<IActionResult> EditCenter(ServiceCenter model)
+    {
+        var center = await _unitOfWork.ServiceCenters.GetByIdAsync(model.Id);
+        if (center == null) return NotFound();
+
+        center.WorkingHoursStart = model.WorkingHoursStart;
+        center.WorkingHoursEnd = model.WorkingHoursEnd;
+        center.LunchBreakStart = model.LunchBreakStart;
+        center.LunchBreakEnd = model.LunchBreakEnd;
+
+        _unitOfWork.ServiceCenters.Update(center);
+        await _unitOfWork.SaveChangesAsync();
+
+        return RedirectToAction("ServiceCenters");
     }
 
     [HttpPost]
@@ -327,5 +362,6 @@ public class AdminController : Controller
             await _unitOfWork.SaveChangesAsync();
         }
         return RedirectToAction("Holidays");
-    }
+    } 
+
 }

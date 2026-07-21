@@ -66,19 +66,27 @@
                                 <td>
                                     @if (a.Status == "Booked")
                                     {
-                                        <a asp-action="Reschedule" asp-route-id="@a.Id" class="btn btn-sm btn-outline-primary me-1">
-                                            <i class="bi bi-calendar-event"></i> Reschedule
+                                        <a asp-action="Reschedule" asp-route-id="@a.Id" class="btn btn-sm btn-outline-primary"
+                                           data-bs-toggle="tooltip" data-bs-placement="top" title="Reschedule">
+                                            <i class="bi bi-calendar2-week"></i>
                                         </a>
-                                        <form asp-action="Cancel" asp-route-id="@a.Id" method="post" class="d-inline"
-                                              onsubmit="return confirm('Cancel this appointment?')">
-                                            @Html.AntiForgeryToken()
-                                            <button type="submit" class="btn btn-sm btn-outline-danger"><i class="bi bi-x-circle"></i> Cancel</button>
+                                        <form asp-action="Cancel" asp-route-id="@a.Id" method="post" class="d-inline">
+                                            <button type="submit" class="btn btn-sm btn-outline-danger"
+                                                    data-bs-toggle="tooltip" data-bs-placement="top" title="Cancel">
+                                                <i class="bi bi-x-circle"></i>
+                                            </button>
                                         </form>
                                     }
                                 </td>
                             </tr>
                         }
                     </tbody>
+                    <script>
+                        document.addEventListener('DOMContentLoaded', function () {
+                            var tooltipTriggerList = document.querySelectorAll('[data-bs-toggle="tooltip"]');
+                            tooltipTriggerList.forEach(el => new bootstrap.Tooltip(el));
+                        });
+                    </script>
                 </table>
             </div>
         </div>

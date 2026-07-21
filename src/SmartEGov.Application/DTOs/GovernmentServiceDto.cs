@@ -23,6 +23,9 @@ public class GovernmentServiceDto
     [Range(1, 365)]
     public int EstimatedDays { get; set; }
 
+    [Range(15, 240)]
+    public int SlotDurationMinutes { get; set; } = 30;
+
     public bool IsActive { get; set; } = true;
     public int? DepartmentId { get; set; }
     public string? DepartmentName { get; set; }

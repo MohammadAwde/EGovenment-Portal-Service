@@ -3,6 +3,7 @@ using System;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Infrastructure;
 using Microsoft.EntityFrameworkCore.Metadata;
+using Microsoft.EntityFrameworkCore.Migrations;
 using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 using SmartEGov.Infrastructure.Data;
 
@@ -11,9 +12,11 @@ using SmartEGov.Infrastructure.Data;
 namespace SmartEGov.Infrastructure.Data.Migrations
 {
     [DbContext(typeof(ApplicationDbContext))]
-    partial class ApplicationDbContextModelSnapshot : ModelSnapshot
+    [Migration("20260721042126_AddSlotDurationToGovernmentService")]
+    partial class AddSlotDurationToGovernmentService
     {
-        protected override void BuildModel(ModelBuilder modelBuilder)
+        /// <inheritdoc />
+        protected override void BuildTargetModel(ModelBuilder modelBuilder)
         {
 #pragma warning disable 612, 618
             modelBuilder
@@ -949,12 +952,6 @@ namespace SmartEGov.Infrastructure.Data.Migrations
                         .HasPrecision(9, 6)
                         .HasColumnType("float(9)");
 
-                    b.Property<TimeSpan>("LunchBreakEnd")
-                        .HasColumnType("time");
-
-                    b.Property<TimeSpan>("LunchBreakStart")
-                        .HasColumnType("time");
-
                     b.Property<string>("PhoneNumber")
                         .IsRequired()
                         .HasColumnType("nvarchar(max)");
@@ -962,12 +959,6 @@ namespace SmartEGov.Infrastructure.Data.Migrations
                     b.Property<string>("WorkingHours")
                         .IsRequired()
                         .HasColumnType("nvarchar(max)");
-
-                    b.Property<TimeSpan>("WorkingHoursEnd")
-                        .HasColumnType("time");
-
-                    b.Property<TimeSpan>("WorkingHoursStart")
-                        .HasColumnType("time");
 
                     b.HasKey("Id");
 

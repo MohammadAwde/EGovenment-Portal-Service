@@ -48,6 +48,14 @@
                         </div>
                         <span asp-validation-for="EstimatedDays" class="text-danger small"></span>
                     </div>
+                    <div class="col-md-4 mb-3">
+                        <label asp-for="SlotDurationMinutes" class="form-label">Appointment Duration (minutes)</label>
+                        <div class="input-group">
+                            <span class="input-group-text"><i class="bi bi-hourglass-split"></i></span>
+                            <input asp-for="SlotDurationMinutes" class="form-control" type="number" step="15" />
+                        </div>
+                        <span asp-validation-for="SlotDurationMinutes" class="text-danger small"></span>
+                    </div>
                 </div>
                 <div class="mb-3">
                     <label asp-for="ApprovalWorkflowId" class="form-label">Approval Workflow</label>
