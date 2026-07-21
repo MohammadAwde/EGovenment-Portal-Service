@@ -254,17 +254,25 @@ public class AppointmentService : IAppointmentService
             ? a
             : await _appointments.GetWithDetailsAsync(a.Id) ?? a;
 
+        // Queue number reflects order by time slot (earliest slot = #1), not booking order
+        var sameDay = (await _appointments.GetByCenterAndDateAsync(f.ServiceCenterId, f.AppointmentDate.Date))
+            .Where(x => x.Status != "Cancelled")
+            .OrderBy(x => x.TimeSlot)
+            .ToList();
+        var idx = sameDay.FindIndex(x => x.Id == f.Id);
+        var queueNumber = idx >= 0 ? idx + 1 : f.QueueNumber;
+
         return new AppointmentDto
         {
             Id = f.Id,
             UserId = f.UserId,
             ServiceCenterId = f.ServiceCenterId,
             GovernmentServiceId = f.GovernmentServiceId,
+            QueueNumber = queueNumber,
             AppointmentDate = f.AppointmentDate,
             TimeSlot = f.TimeSlot,
             Status = f.Status,
             ReferenceNumber = f.ReferenceNumber,
-            QueueNumber = f.QueueNumber,
             CreatedAt = f.CreatedAt,
             ServiceCenterName = f.ServiceCenter?.CenterName,
             ServiceCenterAddress = f.ServiceCenter?.Address,

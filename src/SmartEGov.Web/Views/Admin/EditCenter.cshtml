@@ -1,0 +1,43 @@
+﻿@model SmartEGov.Domain.Entities.ServiceCenter
+@{
+    ViewData["Title"] = "Edit Center Hours";
+}
+
+<div class="lb-page-header">
+    <h2><i class="bi bi-clock me-2"></i>Edit Hours — @Model.CenterName</h2>
+</div>
+
+<div class="lb-form-card">
+    <form asp-action="EditCenter" method="post">
+        <input type="hidden" asp-for="Id" />
+        <input type="hidden" asp-for="CenterName" />
+        <input type="hidden" asp-for="Department" />
+        <input type="hidden" asp-for="Address" />
+        <input type="hidden" asp-for="Latitude" />
+        <input type="hidden" asp-for="Longitude" />
+        <input type="hidden" asp-for="WorkingHours" />
+        <input type="hidden" asp-for="PhoneNumber" />
+        <input type="hidden" asp-for="IsActive" />
+
+        <div class="row">
+            <div class="col-md-6 mb-3">
+                <label class="form-label">Opens at</label>
+                <input asp-for="WorkingHoursStart" class="form-control" type="time" />
+            </div>
+            <div class="col-md-6 mb-3">
+                <label class="form-label">Closes at</label>
+                <input asp-for="WorkingHoursEnd" class="form-control" type="time" />
+            </div>
+            <div class="col-md-6 mb-3">
+                <label class="form-label">Lunch break starts</label>
+                <input asp-for="LunchBreakStart" class="form-control" type="time" />
+            </div>
+            <div class="col-md-6 mb-3">
+                <label class="form-label">Lunch break ends</label>
+                <input asp-for="LunchBreakEnd" class="form-control" type="time" />
+            </div>
+        </div>
+
+        <button type="submit" class="btn btn-lb-primary">Save</button>
+    </form>
+</div>

@@ -16,6 +16,7 @@ public class GovernmentService
     public Department? Department { get; set; }
 
     public int? ApprovalWorkflowId { get; set; }
+    public int SlotDurationMinutes { get; set; } = 30;
     public ApprovalWorkflow? ApprovalWorkflow { get; set; }
 
     public ICollection<ServiceRequest> ServiceRequests { get; set; } = new List<ServiceRequest>();

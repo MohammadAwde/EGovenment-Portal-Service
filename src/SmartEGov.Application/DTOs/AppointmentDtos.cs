@@ -13,6 +13,10 @@ public class ServiceCenterDto
     public string PhoneNumber { get; set; } = string.Empty;
     public bool IsActive { get; set; }
     public double? DistanceKm { get; set; }
+    public TimeSpan WorkingHoursStart { get; set; }
+    public TimeSpan WorkingHoursEnd { get; set; }
+    public TimeSpan LunchBreakStart { get; set; }
+    public TimeSpan LunchBreakEnd { get; set; }
 }
 
 public class AppointmentDto
