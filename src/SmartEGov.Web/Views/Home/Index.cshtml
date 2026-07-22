@@ -23,6 +23,30 @@
                         <i class="bi bi-box-arrow-in-right me-1"></i> Login
                     </a>
                 }
+                else if (User.IsInRole("Citizen"))
+                {
+                    <a asp-controller="ServiceRequest" asp-action="Create" class="btn btn-lb-gold btn-lg me-2">
+                        <i class="bi bi-plus-circle me-1"></i> New Request
+                    </a>
+                    <a asp-controller="ServiceRequest" asp-action="Index" class="btn btn-lb-outline btn-lg">
+                        <i class="bi bi-list-check me-1"></i> My Requests
+                    </a>
+                }
+                else if (User.IsInRole("Admin"))
+                {
+                    <a asp-controller="Admin" asp-action="Index" class="btn btn-lb-gold btn-lg me-2">
+                        <i class="bi bi-speedometer2 me-1"></i> Go to Dashboard
+                    </a>
+                    <a asp-controller="Admin" asp-action="Appointments" class="btn btn-lb-outline btn-lg">
+                        <i class="bi bi-calendar-check me-1"></i> Manage Appointments
+                    </a>
+                }
+                else if (User.IsInRole("Officer"))
+                {
+                    <a asp-controller="Officer" asp-action="Dashboard" class="btn btn-lb-gold btn-lg me-2">
+                        <i class="bi bi-speedometer2 me-1"></i> Go to Dashboard
+                    </a>
+                }
                 else
                 {
                     <a asp-controller="ServiceRequest" asp-action="Create" class="btn btn-lb-gold btn-lg me-2">

@@ -74,15 +74,16 @@ public class AppointmentController : Controller
     {
         var appt = await _appointmentService.GetByIdAsync(id, _userManager.GetUserId(User)!);
         if (appt == null) return NotFound();
+        ViewBag.Centers = await _appointmentService.GetAllCentersAsync();
         return View(appt);
     }
 
     [HttpPost, ValidateAntiForgeryToken]
-    public async Task<IActionResult> Reschedule(int id, DateTime newDate, string newSlot)
+    public async Task<IActionResult> Reschedule(int id, DateTime newDate, string newSlot, int? newCenterId)
     {
         try
         {
-            await _appointmentService.RescheduleAsync(id, newDate, newSlot, _userManager.GetUserId(User)!);
+            await _appointmentService.RescheduleAsync(id, newDate, newSlot, _userManager.GetUserId(User)!, newCenterId);
             TempData["Success"] = "Appointment rescheduled.";
             return RedirectToAction("Index");
         }
@@ -98,6 +99,6 @@ public class AppointmentController : Controller
         => Json(await _appointmentService.GetNearestCentersAsync(lat, lng, radiusKm));
 
     [HttpGet]
-    public async Task<IActionResult> GetSlots(int centerId, DateTime date)
-        => Json(await _appointmentService.GetAvailableSlotsAsync(centerId, date));
+    public async Task<IActionResult> GetSlots(int centerId, int serviceId, DateTime date)
+    => Json(await _appointmentService.GetAvailableSlotsAsync(centerId, serviceId, date));
 }

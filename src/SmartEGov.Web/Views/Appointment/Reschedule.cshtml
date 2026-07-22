@@ -47,6 +47,18 @@
                 }
 
                 <div class="mb-3">
+                    <label class="form-label fw-semibold">Service Center</label>
+                    <select name="newCenterId" id="centerSelect" class="form-select">
+                        @foreach (var c in (IEnumerable<SmartEGov.Application.DTOs.ServiceCenterDto>)ViewBag.Centers)
+                        {
+                            <option value="@c.Id" selected="@(c.Id == Model.ServiceCenterId)">@c.CenterName — @c.Address</option>
+                        }
+                    </select>
+                </div>
+
+                <div class="mb-3">
+                    <label class="form-label fw-semibold">New Date</label>
+                <div class="mb-3">
                     <label class="form-label fw-semibold">New Date</label>
                     <input type="date" name="newDate" class="form-control" id="newDate"
                            min="@DateTime.Today.AddDays(1).ToString("yyyy-MM-dd")"
@@ -80,9 +92,12 @@
 
 @section Scripts {
     <script>
-        const centerId = @Model.ServiceCenterId;
+                document.getElementById('centerSelect').addEventListener('change', function () {
+            document.getElementById('newDate').dispatchEvent(new Event('change'));
+        });
 
         document.getElementById('newDate').addEventListener('change', async function () {
+            const centerId = document.getElementById('centerSelect').value;
             const date = this.value;
             const grid = document.getElementById('slotGrid');
 
@@ -98,7 +113,7 @@
             document.getElementById('selectedSlot').value = '';
             document.getElementById('btnConfirm').disabled = true;
 
-            const slots = await (await fetch(`/Appointment/GetSlots?centerId=${centerId}&date=${date}`)).json();
+            const slots = await (await fetch(`/Appointment/GetSlots?centerId=${centerId}&serviceId=${@Model.GovernmentServiceId}&date=${date}`)).json();
             grid.innerHTML = '';
 
             if (!slots.length) {

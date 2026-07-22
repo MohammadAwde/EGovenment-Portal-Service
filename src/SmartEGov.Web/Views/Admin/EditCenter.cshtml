@@ -38,6 +38,21 @@
             </div>
         </div>
 
+        <div class="row mt-2">
+            <div class="col-md-4 mb-3 form-check">
+                <input asp-for="WorksOnSaturday" class="form-check-input" type="checkbox" />
+                <label asp-for="WorksOnSaturday" class="form-check-label">Open on Saturday</label>
+            </div>
+            <div class="col-md-4 mb-3 form-check">
+                <input asp-for="WorksOnSunday" class="form-check-input" type="checkbox" />
+                <label asp-for="WorksOnSunday" class="form-check-label">Open on Sunday</label>
+            </div>
+            <div class="col-md-4 mb-3">
+                <label class="form-label">Friday closing time (leave empty = same as normal closing)</label>
+                <input asp-for="FridayClosingOverride" class="form-control" type="time" />
+            </div>
+        </div>
+
         <button type="submit" class="btn btn-lb-primary">Save</button>
     </form>
 </div>

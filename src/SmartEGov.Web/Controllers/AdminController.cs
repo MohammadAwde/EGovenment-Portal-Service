@@ -300,7 +300,17 @@ public class AdminController : Controller
     public async Task<IActionResult> MarkAppointmentCompleted(int id)
     {
         var a = await _unitOfWork.Appointments.GetByIdAsync(id);
-        if (a != null) { a.Status = "Completed"; _unitOfWork.Appointments.Update(a); await _unitOfWork.SaveChangesAsync(); }
+        if (a != null)
+        {
+            if (a.AppointmentDate.Date > DateTime.Today)
+            {
+                TempData["Error"] = "Cannot mark a future appointment as completed.";
+                return RedirectToAction("Appointments");
+            }
+            a.Status = "Completed";
+            _unitOfWork.Appointments.Update(a);
+            await _unitOfWork.SaveChangesAsync();
+        }
         TempData["Success"] = "Appointment marked as completed.";
         return RedirectToAction("Appointments");
     }
@@ -309,7 +319,17 @@ public class AdminController : Controller
     public async Task<IActionResult> MarkAppointmentNoShow(int id)
     {
         var a = await _unitOfWork.Appointments.GetByIdAsync(id);
-        if (a != null) { a.Status = "No-Show"; _unitOfWork.Appointments.Update(a); await _unitOfWork.SaveChangesAsync(); }
+        if (a != null)
+        {
+            if (a.AppointmentDate.Date > DateTime.Today)
+            {
+                TempData["Error"] = "Cannot mark a future appointment as no-show.";
+                return RedirectToAction("Appointments");
+            }
+            a.Status = "No-Show";
+            _unitOfWork.Appointments.Update(a);
+            await _unitOfWork.SaveChangesAsync();
+        }
         TempData["Success"] = "Appointment marked as no-show.";
         return RedirectToAction("Appointments");
     }
@@ -349,6 +369,39 @@ public class AdminController : Controller
             TempData["Success"] = "Holiday deleted.";
         }
         return RedirectToAction("Holidays");
+    }
+
+    [HttpGet]
+    public async Task<IActionResult> ExportAppointmentsCsv()
+    {
+        var all = await _unitOfWork.Appointments.GetAllAsync();
+
+        var sb = new System.Text.StringBuilder();
+        sb.AppendLine("Reference,Citizen,Service Center,Service,Date,Slot,Status,Queue #");
+
+        foreach (var a in all.OrderByDescending(x => x.AppointmentDate))
+        {
+            sb.AppendLine(string.Join(",",
+                Escape(a.ReferenceNumber),
+                Escape(a.User?.FullName ?? ""),
+                Escape(a.ServiceCenter?.CenterName ?? ""),
+                Escape(a.GovernmentService?.Name ?? ""),
+                a.AppointmentDate.ToString("yyyy-MM-dd"),
+                Escape(a.TimeSlot),
+                Escape(a.Status),
+                a.QueueNumber));
+        }
+
+        var bytes = System.Text.Encoding.UTF8.GetBytes(sb.ToString());
+        return File(bytes, "text/csv", $"appointments_{DateTime.Now:yyyyMMdd}.csv");
+    }
+
+    private static string Escape(string value)
+    {
+        if (string.IsNullOrEmpty(value)) return "";
+        if (value.Contains(',') || value.Contains('"'))
+            return $"\"{value.Replace("\"", "\"\"")}\"";
+        return value;
     }
 
     [HttpPost, ValidateAntiForgeryToken]

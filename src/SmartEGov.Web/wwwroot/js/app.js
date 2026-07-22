@@ -50,15 +50,25 @@
   }
 
   // Active nav link
-  function highlightActiveNav() {
-    var path = window.location.pathname.toLowerCase();
-    document.querySelectorAll(".lb-navbar .nav-link").forEach(function (link) {
-      var href = link.getAttribute("href");
-      if (href && href !== "/" && path.startsWith(href.toLowerCase())) {
-        link.classList.add("active");
-      }
-    });
-  }
+    function highlightActiveNav() {
+        var path = window.location.pathname.toLowerCase();
+        var links = document.querySelectorAll(".lb-navbar .nav-link");
+        var bestMatch = null;
+        var bestLength = -1;
+
+        links.forEach(function (link) {
+            var href = link.getAttribute("href");
+            if (!href || href === "/") return;
+            href = href.toLowerCase();
+            var matches = (path === href) || path.startsWith(href + "/");
+            if (matches && href.length > bestLength) {
+                bestMatch = link;
+                bestLength = href.length;
+            }
+        });
+
+        if (bestMatch) bestMatch.classList.add("active");
+    }
 
   // Payment method toggle highlight
   function initPaymentMethodToggle() {

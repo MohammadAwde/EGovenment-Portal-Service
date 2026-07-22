@@ -273,12 +273,18 @@
         }
 
         // ── Slot loading ──────────────────────────────────────────────────────────────
-        document.getElementById('apptDate').addEventListener('change', loadSlots);
+                document.getElementById('apptDate').addEventListener('change', loadSlots);
+        document.getElementById('svcSelect').addEventListener('change', loadSlots);
 
         async function loadSlots() {
             const date = document.getElementById('apptDate').value;
+            const serviceId = document.getElementById('svcSelect').value;
             if (!selectedCenterId || !date) return;
-
+            if (!serviceId) {
+                document.getElementById('slotGrid').innerHTML =
+                    '<p class="text-muted small">Please select a service first.</p>';
+                return;
+            }
             const dayOfWeek = new Date(date).getDay();
              if (dayOfWeek === 0 || dayOfWeek === 6) {
             document.getElementById('slotGrid').innerHTML =
@@ -291,7 +297,7 @@
             document.getElementById('selectedSlot').value = '';
             checkReady();
 
-            const slots = await (await fetch(`/Appointment/GetSlots?centerId=${selectedCenterId}&date=${date}`)).json();
+            const slots = await (await fetch(`/Appointment/GetSlots?centerId=${selectedCenterId}&serviceId=${serviceId}&date=${date}`)).json();
             grid.innerHTML = '';
 
             if (!slots.length) {

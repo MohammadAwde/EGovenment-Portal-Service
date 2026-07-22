@@ -71,7 +71,7 @@ public class AppointmentService : IAppointmentService
         }).ToList();
     }
 
-    public async Task<IEnumerable<string>> GetAvailableSlotsAsync(int serviceCenterId, DateTime date)
+    public async Task<IEnumerable<string>> GetAvailableSlotsAsync(int serviceCenterId, int governmentServiceId, DateTime date)
     {
         if (date.DayOfWeek is DayOfWeek.Saturday or DayOfWeek.Sunday)
             return [];
@@ -79,10 +79,32 @@ public class AppointmentService : IAppointmentService
         var isHoliday = await _unitOfWork.PublicHolidays.IsHolidayAsync(date);
         if (isHoliday) return [];
 
-        // Friday — morning only (before 12:00)
-        var slots = date.DayOfWeek == DayOfWeek.Friday
-            ? AllSlots.Where(s => s.StartsWith("09") || s.StartsWith("10") || s.StartsWith("11"))
-            : AllSlots;
+        var center = await _centers.GetByIdAsync(serviceCenterId);
+        var service = await _unitOfWork.GovernmentServices.GetByIdAsync(governmentServiceId);
+        if (center == null || service == null) return [];
+
+        var duration = service.SlotDurationMinutes > 0 ? service.SlotDurationMinutes : 30;
+
+        var start = center.WorkingHoursStart;
+        var end = center.WorkingHoursEnd;
+
+        // Friday: morning only, capped at 12:00 regardless of the center's normal closing time
+        if (date.DayOfWeek == DayOfWeek.Friday)
+        {
+            var noon = new TimeSpan(12, 0, 0);
+            if (end > noon) end = noon;
+        }
+
+        var slots = new List<string>();
+        var cur = start;
+        while (cur + TimeSpan.FromMinutes(duration) <= end)
+        {
+            var slotEnd = cur + TimeSpan.FromMinutes(duration);
+            var overlapsLunch = cur < center.LunchBreakEnd && slotEnd > center.LunchBreakStart;
+            if (!overlapsLunch)
+                slots.Add($"{cur.Hours:D2}:{cur.Minutes:D2}-{slotEnd.Hours:D2}:{slotEnd.Minutes:D2}");
+            cur += TimeSpan.FromMinutes(duration);
+        }
 
         var booked = (await _appointments.GetByCenterAndDateAsync(serviceCenterId, date))
             .Select(a => a.TimeSlot).ToHashSet();
@@ -95,13 +117,22 @@ public class AppointmentService : IAppointmentService
         if (request.AppointmentDate.Date <= DateTime.Today)
             throw new InvalidOperationException("Appointment date must be in the future.");
 
-        if (request.AppointmentDate.DayOfWeek is DayOfWeek.Saturday or DayOfWeek.Sunday)
-            throw new InvalidOperationException("Appointments are not available on weekends.");
+        var center = await _centers.GetByIdAsync(request.ServiceCenterId);
+        if (center == null)
+            throw new InvalidOperationException("Service center not found.");
 
-        if (request.AppointmentDate.DayOfWeek == DayOfWeek.Friday &&
-            !(request.TimeSlot.StartsWith("09") || request.TimeSlot.StartsWith("10") || request.TimeSlot.StartsWith("11")))
+        if (request.AppointmentDate.DayOfWeek == DayOfWeek.Saturday && !center.WorksOnSaturday)
+            throw new InvalidOperationException("This center is not open on Saturdays.");
+
+        if (request.AppointmentDate.DayOfWeek == DayOfWeek.Sunday && !center.WorksOnSunday)
+            throw new InvalidOperationException("This center is not open on Sundays.");
+
+        if (request.AppointmentDate.DayOfWeek == DayOfWeek.Friday && center.FridayClosingOverride.HasValue)
         {
-            throw new InvalidOperationException("Friday appointments are only available in the morning, before 12:00.");
+            var startParts = request.TimeSlot.Split(':');
+            var startTime = new TimeSpan(int.Parse(startParts[0]), int.Parse(startParts[1].Split('-')[0]), 0);
+            if (startTime >= center.FridayClosingOverride.Value)
+                throw new InvalidOperationException($"Friday appointments at this center are only available before {center.FridayClosingOverride.Value:hh\\:mm}.");
         }
 
         var existing = await _appointments.GetByUserIdAsync(userId);
@@ -188,7 +219,7 @@ public class AppointmentService : IAppointmentService
     }
 
     public async Task<AppointmentDto> RescheduleAsync(
-        int id, DateTime newDate, string newSlot, string userId)
+    int id, DateTime newDate, string newSlot, string userId, int? newCenterId = null)
     {
         var a = await _appointments.GetWithDetailsAsync(id)
             ?? throw new KeyNotFoundException("Appointment not found.");
@@ -204,19 +235,24 @@ public class AppointmentService : IAppointmentService
         if (newDate.Date <= DateTime.Today)
             throw new InvalidOperationException("New date must be in the future.");
 
-        if (await _appointments.SlotTakenAsync(a.ServiceCenterId, newDate, newSlot))
+        var targetCenterId = newCenterId ?? a.ServiceCenterId;
+
+        if (await _appointments.SlotTakenAsync(targetCenterId, newDate, newSlot))
             throw new InvalidOperationException("The new slot is already taken.");
 
+        var centerChanged = targetCenterId != a.ServiceCenterId;
+
+        a.ServiceCenterId = targetCenterId;
         a.AppointmentDate = newDate.Date;
         a.TimeSlot = newSlot;
         _appointments.Update(a);
         await _unitOfWork.SaveChangesAsync();
 
-        await _notifications.SendAsync(
-            userId,
-            "Appointment Rescheduled",
-            $"Your appointment #{a.ReferenceNumber} has been moved to " +
-            $"{newDate:dd MMM yyyy} at {newSlot}.");
+        var message = centerChanged
+            ? $"Your appointment #{a.ReferenceNumber} has been moved to a different center on {newDate:dd MMM yyyy} at {newSlot}."
+            : $"Your appointment #{a.ReferenceNumber} has been moved to {newDate:dd MMM yyyy} at {newSlot}.";
+
+        await _notifications.SendAsync(userId, "Appointment Rescheduled", message);
 
         return await BuildDto(a);
     }
