@@ -3,6 +3,7 @@ using System;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Infrastructure;
 using Microsoft.EntityFrameworkCore.Metadata;
+using Microsoft.EntityFrameworkCore.Migrations;
 using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 using SmartEGov.Infrastructure.Data;
 
@@ -11,9 +12,11 @@ using SmartEGov.Infrastructure.Data;
 namespace SmartEGov.Infrastructure.Data.Migrations
 {
     [DbContext(typeof(ApplicationDbContext))]
-    partial class ApplicationDbContextModelSnapshot : ModelSnapshot
+    [Migration("20260723040744_AddSupportMessages")]
+    partial class AddSupportMessages
     {
-        protected override void BuildModel(ModelBuilder modelBuilder)
+        /// <inheritdoc />
+        protected override void BuildTargetModel(ModelBuilder modelBuilder)
         {
 #pragma warning disable 612, 618
             modelBuilder
@@ -1078,42 +1081,6 @@ namespace SmartEGov.Infrastructure.Data.Migrations
                     b.ToTable("SupportMessages");
                 });
 
-            modelBuilder.Entity("SmartEGov.Domain.Entities.SupportReply", b =>
-                {
-                    b.Property<int>("Id")
-                        .ValueGeneratedOnAdd()
-                        .HasColumnType("int");
-
-                    SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<int>("Id"));
-
-                    b.Property<DateTime>("CreatedAt")
-                        .HasColumnType("datetime2");
-
-                    b.Property<bool>("IsFromAdmin")
-                        .HasColumnType("bit");
-
-                    b.Property<string>("SenderName")
-                        .IsRequired()
-                        .HasColumnType("nvarchar(max)");
-
-                    b.Property<string>("SenderUserId")
-                        .IsRequired()
-                        .HasColumnType("nvarchar(max)");
-
-                    b.Property<int>("SupportMessageId")
-                        .HasColumnType("int");
-
-                    b.Property<string>("Text")
-                        .IsRequired()
-                        .HasColumnType("nvarchar(max)");
-
-                    b.HasKey("Id");
-
-                    b.HasIndex("SupportMessageId");
-
-                    b.ToTable("SupportReplies");
-                });
-
             modelBuilder.Entity("Microsoft.AspNetCore.Identity.IdentityRoleClaim<string>", b =>
                 {
                     b.HasOne("Microsoft.AspNetCore.Identity.IdentityRole", null)
@@ -1371,17 +1338,6 @@ namespace SmartEGov.Infrastructure.Data.Migrations
                     b.Navigation("GovernmentService");
                 });
 
-            modelBuilder.Entity("SmartEGov.Domain.Entities.SupportReply", b =>
-                {
-                    b.HasOne("SmartEGov.Domain.Entities.SupportMessage", "SupportMessage")
-                        .WithMany("Replies")
-                        .HasForeignKey("SupportMessageId")
-                        .OnDelete(DeleteBehavior.Cascade)
-                        .IsRequired();
-
-                    b.Navigation("SupportMessage");
-                });
-
             modelBuilder.Entity("SmartEGov.Domain.Entities.ApplicationUser", b =>
                 {
                     b.Navigation("AuditLogs");
@@ -1431,11 +1387,6 @@ namespace SmartEGov.Infrastructure.Data.Migrations
                     b.Navigation("Documents");
 
                     b.Navigation("Payments");
-                });
-
-            modelBuilder.Entity("SmartEGov.Domain.Entities.SupportMessage", b =>
-                {
-                    b.Navigation("Replies");
                 });
 #pragma warning restore 612, 618
         }

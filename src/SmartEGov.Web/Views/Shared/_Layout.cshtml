@@ -127,6 +127,11 @@
                                 <i class="bi bi-person me-1"></i>Profile
                             </a>
                         </li>
+                        <li class="nav-item">
+                            <a class="nav-link" asp-controller="Support" asp-action="Index">
+                                <i class="bi bi-chat-dots me-1"></i>Support
+                            </a>
+                        </li>
                     }
 
                     @* Notifications for any logged-in user *@
@@ -163,6 +168,11 @@
                         <li class="nav-item">
                             <a class="nav-link" asp-controller="Admin" asp-action="ServiceCenters">
                                 <i class="bi bi-geo-alt me-1"></i>Service Centers
+                            </a>
+                        </li>
+                        <li class="nav-item">
+                            <a class="nav-link" asp-controller="Admin" asp-action="SupportMessages">
+                                <i class="bi bi-chat-dots me-1"></i>Support Messages
                             </a>
                         </li>
                     }
@@ -219,7 +229,7 @@
 
     <!-- Main Content -->
     <main class="lb-main-content">
-        <div class="container-fluid py-3 lb-container">
+        <div class="container-fluid px-3 lb-container">
             @RenderBody()
         </div>
     </main>

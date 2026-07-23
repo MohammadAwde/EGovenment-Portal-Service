@@ -1,3 +1,5 @@
+using SmartEGov.Domain.Entities;
+
 namespace SmartEGov.Application.Interfaces;
 
 public interface IUnitOfWork : IDisposable
@@ -16,5 +18,7 @@ public interface IUnitOfWork : IDisposable
     IServiceCenterRepository ServiceCenters { get; }
     IDocumentProfileRepository DocumentProfiles { get; }
     IPublicHolidayRepository PublicHolidays { get; }
+    ISupportMessageRepository SupportMessages { get; }
+    IRepository<SupportReply> SupportReplies { get; }
     Task<int> SaveChangesAsync();
 }

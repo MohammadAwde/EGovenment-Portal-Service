@@ -158,6 +158,7 @@ builder.Services.Configure<GzipCompressionProviderOptions>(opt => opt.Level = Sy
 // Caching (in-memory). For multi-instance use a distributed cache like Redis.
 builder.Services.AddMemoryCache();
 builder.Services.AddDistributedMemoryCache();
+builder.Services.AddSignalR();
 
 var app = builder.Build();
 
@@ -307,6 +308,7 @@ app.UseWebSockets();
 
 app.UseAuthentication();
 app.UseAuthorization();
+app.MapHub<SmartEGov.Web.Hubs.SupportHub>("/supportHub");
 
 app.MapControllerRoute(
     name: "default",

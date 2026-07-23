@@ -1,6 +1,7 @@
 using SmartEGov.Application.Interfaces;
-using SmartEGov.Infrastructure.Data;
 using SmartEGov.Application.Interfaces;
+using SmartEGov.Domain.Entities;
+using SmartEGov.Infrastructure.Data;
 
 namespace SmartEGov.Infrastructure.Repositories;
 
@@ -25,6 +26,8 @@ public class UnitOfWork : IUnitOfWork
         ServiceCenters = new ServiceCenterRepository(context);
         DocumentProfiles = new DocumentProfileRepository(context);
         PublicHolidays = new PublicHolidayRepository(context);
+        SupportMessages = new SupportMessageRepository(context);
+        SupportReplies = new Repository<SupportReply>(context);
     }
 
     public ICitizenRepository Citizens { get; }
@@ -41,6 +44,9 @@ public class UnitOfWork : IUnitOfWork
     public IServiceCenterRepository ServiceCenters { get; }
     public IDocumentProfileRepository DocumentProfiles { get; }
     public IPublicHolidayRepository PublicHolidays { get; }
+    public ISupportMessageRepository SupportMessages { get; }
+    public IRepository<SupportReply> SupportReplies { get; }
+
 
     public async Task<int> SaveChangesAsync()
     {

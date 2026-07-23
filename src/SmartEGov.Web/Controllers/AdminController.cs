@@ -1,10 +1,13 @@
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.AspNetCore.Mvc;
+using Microsoft.AspNetCore.SignalR;
 using SmartEGov.Application.DTOs;
 using SmartEGov.Application.Interfaces;
 using SmartEGov.Application.Services;
 using SmartEGov.Domain.Entities;
+using Microsoft.AspNetCore.SignalR;
+using SmartEGov.Web.Hubs;
 
 namespace SmartEGov.Web.Controllers;
 
@@ -17,6 +20,7 @@ public class AdminController : Controller
     private readonly IAuditLogService _auditLogService;
     private readonly IDashboardService _dashboardService;
     private readonly IPublicHolidayRepository _holidays;
+    private readonly IHubContext<SupportHub> _hub;
 
     public AdminController(
         UserManager<ApplicationUser> userManager,
@@ -24,14 +28,16 @@ public class AdminController : Controller
         IUnitOfWork unitOfWork,
         IAuditLogService auditLogService,
         IDashboardService dashboardService,
-        IPublicHolidayRepository holidays)
+        IPublicHolidayRepository holidays,
+        IHubContext<SupportHub> hub)
     {
         _userManager = userManager;
         _roleManager = roleManager;
         _unitOfWork = unitOfWork;
         _auditLogService = auditLogService;
         _dashboardService = dashboardService;
-            _holidays = holidays; 
+        _holidays = holidays;
+        _hub = hub;
     }
 
     public async Task<IActionResult> Index()
@@ -278,6 +284,7 @@ public class AdminController : Controller
     public async Task<IActionResult> Appointments()
     {
         var all = await _unitOfWork.Appointments.GetAllAsync();
+
         var dtos = all.Select(a => new AppointmentDto
         {
             Id = a.Id,
@@ -415,6 +422,46 @@ public class AdminController : Controller
             await _unitOfWork.SaveChangesAsync();
         }
         return RedirectToAction("Holidays");
-    } 
+    }
+    [HttpGet]
+    public async Task<IActionResult> SupportMessages()
+    {
+        var messages = await _unitOfWork.SupportMessages.GetAllWithRepliesAsync();
+        return View(messages);
+    }
+    [HttpGet]
+    public async Task<IActionResult> MessageDetails(int id)
+    {
+        var msg = await _unitOfWork.SupportMessages.GetByIdWithRepliesAsync(id);
+        if (msg == null) return NotFound();
+        return View(msg);
+    }
 
+    [HttpPost]
+    [ValidateAntiForgeryToken]
+    public async Task<IActionResult> ReplyToMessage(int id, string reply)
+    {
+        var msg = await _unitOfWork.SupportMessages.GetByIdWithRepliesAsync(id);
+        if (msg != null && !string.IsNullOrWhiteSpace(reply))
+        {
+            var adminId = _userManager.GetUserId(User)!;
+            var newReply = new SupportReply
+            {
+                SupportMessageId = id,
+                SenderUserId = adminId,
+                SenderName = "Admin",
+                IsFromAdmin = true,
+                Text = reply
+            };
+            await _unitOfWork.SupportReplies.AddAsync(newReply);
+
+            msg.Status = "Answered";
+            _unitOfWork.SupportMessages.Update(msg);
+            await _unitOfWork.SaveChangesAsync();
+
+            await _hub.Clients.Group(msg.CitizenUserId).SendAsync("ReceiveReply", msg.Id, reply);
+        }
+        TempData["Success"] = "Reply sent.";
+        return RedirectToAction("MessageDetails", new { id });
+    }
 }

@@ -29,6 +29,8 @@ public class ApplicationDbContext : IdentityDbContext<ApplicationUser>
     public DbSet<DocumentProfile> DocumentProfiles => Set<DocumentProfile>();
     public DbSet<PublicHoliday> PublicHolidays { get; set; }
     public DbSet<AppointmentReminderLog> AppointmentReminderLogs { get; set; }
+    public DbSet<SupportMessage> SupportMessages => Set<SupportMessage>();
+    public DbSet<SupportReply> SupportReplies => Set<SupportReply>();
 
     protected override void OnModelCreating(ModelBuilder builder)
     {

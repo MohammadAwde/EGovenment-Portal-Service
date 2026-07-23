@@ -140,12 +140,14 @@
   function initDarkMode() {
     var toggle = document.getElementById('toggleDarkMode');
     if (!toggle) return;
-    function apply(isDark) {
-      if (isDark) document.body.classList.add('dark-theme'); else document.body.classList.remove('dark-theme');
-      var icon = toggle.querySelector('i');
-      if (icon) icon.className = isDark ? 'bi bi-sun-fill' : 'bi bi-moon-fill';
-      try { localStorage.setItem('smartegov:dark', isDark ? '1' : '0'); } catch(e){}
-    }
+      function apply(isDark) {
+          if (isDark) document.body.classList.add('dark-theme'); else document.body.classList.remove('dark-theme');
+          var icon = toggle.querySelector('i');
+          if (icon) icon.className = isDark ? 'bi bi-sun-fill' : 'bi bi-moon-fill';
+          var label = toggle.querySelector('span');
+          if (label) label.textContent = isDark ? 'Light' : 'Dark';
+          try { localStorage.setItem('smartegov:dark', isDark ? '1' : '0'); } catch (e) { }
+      }
     // initial state
     try {
       var stored = localStorage.getItem('smartegov:dark');
