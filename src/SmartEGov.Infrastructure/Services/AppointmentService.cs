@@ -73,9 +73,6 @@ public class AppointmentService : IAppointmentService
 
     public async Task<IEnumerable<string>> GetAvailableSlotsAsync(int serviceCenterId, int governmentServiceId, DateTime date)
     {
-        if (date.DayOfWeek is DayOfWeek.Saturday or DayOfWeek.Sunday)
-            return [];
-
         var isHoliday = await _unitOfWork.PublicHolidays.IsHolidayAsync(date);
         if (isHoliday) return [];
 
@@ -87,22 +84,20 @@ public class AppointmentService : IAppointmentService
 
         var duration = service.SlotDurationMinutes > 0 ? service.SlotDurationMinutes : 30;
 
-        var allSchedules = await _unitOfWork.WeekdaySchedules.GetAllAsync();
-        var daySchedule = allSchedules.FirstOrDefault(s => s.DayOfWeek == date.DayOfWeek);
-        if (daySchedule == null) return [];
-
-        var start = daySchedule.OpenTime;
-        var end = daySchedule.CloseTime;
+        var allPeriods = await _unitOfWork.WorkPeriods.GetAllAsync();
+        var dayPeriods = allPeriods.Where(p => p.DayOfWeek == date.DayOfWeek).OrderBy(p => p.StartTime).ToList();
+        if (!dayPeriods.Any()) return [];
 
         var slots = new List<string>();
-        var cur = start;
-        while (cur + TimeSpan.FromMinutes(duration) <= end)
+        foreach (var period in dayPeriods)
         {
-            var slotEnd = cur + TimeSpan.FromMinutes(duration);
-            var overlapsLunch = cur < daySchedule.BreakEnd && slotEnd > daySchedule.BreakStart;
-            if (!overlapsLunch)
+            var cur = period.StartTime;
+            while (cur + TimeSpan.FromMinutes(duration) <= period.EndTime)
+            {
+                var slotEnd = cur + TimeSpan.FromMinutes(duration);
                 slots.Add($"{cur.Hours:D2}:{cur.Minutes:D2}-{slotEnd.Hours:D2}:{slotEnd.Minutes:D2}");
-            cur += TimeSpan.FromMinutes(duration);
+                cur += TimeSpan.FromMinutes(duration);
+            }
         }
 
         var booked = (await _appointments.GetByCenterAndDateAsync(serviceCenterId, date))

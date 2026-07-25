@@ -1,4 +1,5 @@
 using SmartEGov.Domain.Entities;
+using SmartEGov.Domain.Entities;
 
 namespace SmartEGov.Application.Interfaces;
 
@@ -21,6 +22,6 @@ public interface IUnitOfWork : IDisposable
     ISupportMessageRepository SupportMessages { get; }
     IRepository<SupportReply> SupportReplies { get; }
     IRepository<ServiceCenterDaySchedule> ServiceCenterDaySchedules { get; }
-    IRepository<WeekdaySchedule> WeekdaySchedules { get; }
+    IRepository<WorkPeriod> WorkPeriods { get; }
     Task<int> SaveChangesAsync();
 }

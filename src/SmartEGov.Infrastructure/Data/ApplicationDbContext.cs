@@ -32,7 +32,7 @@ public class ApplicationDbContext : IdentityDbContext<ApplicationUser>
     public DbSet<SupportMessage> SupportMessages => Set<SupportMessage>();
     public DbSet<SupportReply> SupportReplies => Set<SupportReply>();
     public DbSet<ServiceCenterDaySchedule> ServiceCenterDaySchedules => Set<ServiceCenterDaySchedule>();
-    public DbSet<WeekdaySchedule> WeekdaySchedules => Set<WeekdaySchedule>();
+    public DbSet<WorkPeriod> WorkPeriods => Set<WorkPeriod>();
 
     protected override void OnModelCreating(ModelBuilder builder)
     {
