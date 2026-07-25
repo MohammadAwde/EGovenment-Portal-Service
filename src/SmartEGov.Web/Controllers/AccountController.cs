@@ -93,7 +93,7 @@ public class AccountController : Controller
                     Email = email,
                     EmailConfirmed = true,
                     IsActive = true,
-                    FullName = info.Principal.FindFirstValue(ClaimTypes.Name)
+                    FullName = info.Principal.FindFirstValue(ClaimTypes.Name) ?? string.Empty
                 };
 
                 var createResult = await _userManager.CreateAsync(user);

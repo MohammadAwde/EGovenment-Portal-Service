@@ -126,19 +126,12 @@ builder.Services.AddResponseCompression(options =>
     options.Providers.Add<BrotliCompressionProvider>();
     options.Providers.Add<GzipCompressionProvider>();
 
-    // In development exclude text/html so BrowserLink / Hot Reload can inject
-    // scripts into HTML responses. In production keep default MIME types so
-    // HTML can still be compressed.
-    if (builder.Environment.IsDevelopment())
-    {
-        options.MimeTypes = ResponseCompressionDefaults.MimeTypes
-            .Where(m => !string.Equals(m, "text/html", StringComparison.OrdinalIgnoreCase))
-            .Concat(new[] { "application/json" });
-    }
-    else
-    {
-        options.MimeTypes = ResponseCompressionDefaults.MimeTypes.Concat(new[] { "application/json" });
-    }
+    // Include common text responses (including text/html) so Brotli/Gzip
+    // can compress HTML pages and reduce transfer size. In development this
+    // may affect some hot-reload injection tools; toggle with
+    // environment configuration if needed.
+    options.MimeTypes = ResponseCompressionDefaults.MimeTypes
+        .Concat(new[] { "application/json", "text/html" });
 });
 
 // When the app runs behind a reverse proxy (nginx/IIS/ingress) enable forwarded

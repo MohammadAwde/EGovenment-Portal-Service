@@ -129,7 +129,7 @@ public class StripeWebhookController : ControllerBase
                     try { sessionId = (stripeEvent.Data.Object as Stripe.IHasId)?.Id; } catch { sessionId = null; }
                     if (string.IsNullOrWhiteSpace(sessionId))
                     {
-                        try { sessionId = JObject.Parse(json)["data"]?["object"]?["id"]?.ToString(); } catch { }
+                        try { sessionId = JObject.Parse(json!)["data"]?["object"]?["id"]?.ToString(); } catch { }
                     }
 
                     if (string.IsNullOrWhiteSpace(sessionId))
@@ -264,7 +264,7 @@ public class StripeWebhookController : ControllerBase
                     try { intentId = (stripeEvent.Data.Object as Stripe.IHasId)?.Id; } catch { intentId = null; }
                     if (string.IsNullOrWhiteSpace(intentId))
                     {
-                        try { intentId = JObject.Parse(json)["data"]?["object"]?["id"]?.ToString(); } catch { }
+                        try { intentId = JObject.Parse(json!)["data"]?["object"]?["id"]?.ToString(); } catch { }
                     }
 
                     if (string.IsNullOrWhiteSpace(intentId))

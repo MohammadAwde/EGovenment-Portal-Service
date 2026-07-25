@@ -1,8 +1,7 @@
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.AspNetCore.Mvc;
-using Microsoft.AspNetCore.SignalR;
-using SmartEGov.Application.Interfaces;
+// duplicate usings removed
 using SmartEGov.Application.Services;
 using SmartEGov.Domain.Entities;
 using SmartEGov.Application.DTOs;

@@ -1,5 +1,4 @@
 using Microsoft.AspNetCore.Authorization;
-using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Identity;
 using SmartEGov.Domain.Enums;
 using Microsoft.AspNetCore.Mvc;
@@ -656,7 +655,9 @@ public class ServiceRequestController : Controller
                             }
                             else
                             {
-                                link = Url.Action("Details", "ServiceRequest", new { id = dto.Id }, Request.Scheme ?? "https");
+                                // Url.Action can return null; provide a safe fallback absolute URL
+                                link = Url.Action("Details", "ServiceRequest", new { id = dto.Id }, Request.Scheme ?? "https")
+                                       ?? $"{Request.Scheme}://{Request.Host}/ServiceRequest/Details/{dto.Id}";
                             }
 
                             var message = $"Your service request {dto.ReferenceNumber} has been completed. Download: {link}";
