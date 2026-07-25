@@ -12,6 +12,8 @@ public interface IAppointmentRepository : IRepository<Appointment>
 public interface IServiceCenterRepository : IRepository<ServiceCenter>
 {
     Task<IEnumerable<ServiceCenter>> GetActiveAsync();
+    Task<ServiceCenter?> GetByIdWithSchedulesAsync(int id);
+
 }
 
 public interface IDocumentProfileRepository : IRepository<DocumentProfile>

@@ -9,6 +9,17 @@ public class AppointmentRepository : Repository<Appointment>, IAppointmentReposi
 {
     public AppointmentRepository(ApplicationDbContext context) : base(context) { }
 
+    // Ensure all callers that use GetAllAsync() get related entities loaded
+    public new async Task<IEnumerable<Appointment>> GetAllAsync()
+    {
+        return await _context.Appointments
+            .Include(a => a.ServiceCenter)
+            .Include(a => a.GovernmentService)
+            .Include(a => a.User) // optional: enables showing user full name instead of UserId
+            .OrderByDescending(a => a.AppointmentDate)
+            .ToListAsync();
+    }
+
     public async Task<IEnumerable<Appointment>> GetByUserIdAsync(string userId)
         => await _context.Appointments
             .Include(a => a.ServiceCenter).Include(a => a.GovernmentService)
@@ -25,7 +36,7 @@ public class AppointmentRepository : Repository<Appointment>, IAppointmentReposi
             && a.TimeSlot == timeSlot && a.Status == "Booked");
 
     public async Task<Appointment?> GetWithDetailsAsync(int appointmentId)
-        => await _context.Appointments
+        => await _context.Appointments      
             .Include(a => a.ServiceCenter).Include(a => a.GovernmentService)
             .FirstOrDefaultAsync(a => a.Id == appointmentId);
 }
@@ -36,4 +47,7 @@ public class ServiceCenterRepository : Repository<ServiceCenter>, IServiceCenter
 
     public async Task<IEnumerable<ServiceCenter>> GetActiveAsync()
         => await _context.ServiceCenters.Where(c => c.IsActive).OrderBy(c => c.CenterName).ToListAsync();
+
+    public async Task<ServiceCenter?> GetByIdWithSchedulesAsync(int id)
+        => await _dbSet.Include(c => c.DaySchedules).FirstOrDefaultAsync(c => c.Id == id);
 }

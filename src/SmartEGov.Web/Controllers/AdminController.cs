@@ -6,7 +6,7 @@ using SmartEGov.Application.DTOs;
 using SmartEGov.Application.Interfaces;
 using SmartEGov.Application.Services;
 using SmartEGov.Domain.Entities;
-using Microsoft.AspNetCore.SignalR;
+
 using SmartEGov.Web.Hubs;
 
 namespace SmartEGov.Web.Controllers;
@@ -242,14 +242,40 @@ public class AdminController : Controller
     [HttpGet]
     public async Task<IActionResult> EditCenter(int id)
     {
-        var center = await _unitOfWork.ServiceCenters.GetByIdAsync(id);
+        var center = await _unitOfWork.ServiceCenters.GetByIdWithSchedulesAsync(id);
         if (center == null) return NotFound();
+
+        var weekdays = new[] { DayOfWeek.Monday, DayOfWeek.Tuesday, DayOfWeek.Wednesday, DayOfWeek.Thursday, DayOfWeek.Friday };
+        foreach (var day in weekdays)
+        {
+            if (!center.DaySchedules.Any(s => s.DayOfWeek == day))
+            {
+                center.DaySchedules.Add(new ServiceCenterDaySchedule
+                {
+                    ServiceCenterId = center.Id,
+                    DayOfWeek = day,
+                    OpenTime = center.WorkingHoursStart,
+                    CloseTime = day == DayOfWeek.Friday
+                        ? (center.FridayClosingOverride ?? new TimeSpan(12, 0, 0))
+                        : center.WorkingHoursEnd,
+                    BreakStart = center.LunchBreakStart,
+                    BreakEnd = center.LunchBreakEnd
+                });
+            }
+        }
+        await _unitOfWork.SaveChangesAsync();
+
+        center.DaySchedules = center.DaySchedules.OrderBy(s => s.DayOfWeek == DayOfWeek.Monday ? 0
+            : s.DayOfWeek == DayOfWeek.Tuesday ? 1
+            : s.DayOfWeek == DayOfWeek.Wednesday ? 2
+            : s.DayOfWeek == DayOfWeek.Thursday ? 3 : 4).ToList();
+
         return View(center);
     }
 
     [HttpPost]
     [ValidateAntiForgeryToken]
-    public async Task<IActionResult> EditCenter(ServiceCenter model)
+    public async Task<IActionResult> EditCenter(ServiceCenter model, List<ServiceCenterDaySchedule> daySchedules)
     {
         var center = await _unitOfWork.ServiceCenters.GetByIdAsync(model.Id);
         if (center == null) return NotFound();
@@ -258,6 +284,19 @@ public class AdminController : Controller
         center.WorkingHoursEnd = model.WorkingHoursEnd;
         center.LunchBreakStart = model.LunchBreakStart;
         center.LunchBreakEnd = model.LunchBreakEnd;
+
+        foreach (var incoming in daySchedules)
+        {
+            var existing = await _unitOfWork.ServiceCenterDaySchedules.GetByIdAsync(incoming.Id);
+            if (existing != null)
+            {
+                existing.OpenTime = incoming.OpenTime;
+                existing.CloseTime = incoming.CloseTime;
+                existing.BreakStart = incoming.BreakStart;
+                existing.BreakEnd = incoming.BreakEnd;
+                _unitOfWork.ServiceCenterDaySchedules.Update(existing);
+            }
+        }
 
         _unitOfWork.ServiceCenters.Update(center);
         await _unitOfWork.SaveChangesAsync();
@@ -424,44 +463,59 @@ public class AdminController : Controller
         return RedirectToAction("Holidays");
     }
     [HttpGet]
-    public async Task<IActionResult> SupportMessages()
+    public async Task<IActionResult> WorkingHours()
     {
-        var messages = await _unitOfWork.SupportMessages.GetAllWithRepliesAsync();
-        return View(messages);
-    }
-    [HttpGet]
-    public async Task<IActionResult> MessageDetails(int id)
-    {
-        var msg = await _unitOfWork.SupportMessages.GetByIdWithRepliesAsync(id);
-        if (msg == null) return NotFound();
-        return View(msg);
-    }
+        var all = (await _unitOfWork.WeekdaySchedules.GetAllAsync()).ToList();
 
-    [HttpPost]
-    [ValidateAntiForgeryToken]
-    public async Task<IActionResult> ReplyToMessage(int id, string reply)
-    {
-        var msg = await _unitOfWork.SupportMessages.GetByIdWithRepliesAsync(id);
-        if (msg != null && !string.IsNullOrWhiteSpace(reply))
+        // Remove duplicates: keep only the highest Id (most recently saved) per day
+        var duplicates = all
+            .GroupBy(s => s.DayOfWeek)
+            .Where(g => g.Count() > 1)
+            .SelectMany(g => g.OrderBy(s => s.Id).SkipLast(1));
+
+        foreach (var dup in duplicates)
         {
-            var adminId = _userManager.GetUserId(User)!;
-            var newReply = new SupportReply
-            {
-                SupportMessageId = id,
-                SenderUserId = adminId,
-                SenderName = "Admin",
-                IsFromAdmin = true,
-                Text = reply
-            };
-            await _unitOfWork.SupportReplies.AddAsync(newReply);
-
-            msg.Status = "Answered";
-            _unitOfWork.SupportMessages.Update(msg);
+            _unitOfWork.WeekdaySchedules.Remove(dup);
+        }
+        if (duplicates.Any())
             await _unitOfWork.SaveChangesAsync();
 
-            await _hub.Clients.Group(msg.CitizenUserId).SendAsync("ReceiveReply", msg.Id, reply);
+        var schedules = all.GroupBy(s => s.DayOfWeek).Select(g => g.OrderBy(s => s.Id).Last()).ToList();
+
+        var weekdays = new[] { DayOfWeek.Monday, DayOfWeek.Tuesday, DayOfWeek.Wednesday, DayOfWeek.Thursday, DayOfWeek.Friday };
+        foreach (var day in weekdays)
+        {
+            if (!schedules.Any(s => s.DayOfWeek == day))
+            {
+                var newDay = new WeekdaySchedule { DayOfWeek = day };
+                await _unitOfWork.WeekdaySchedules.AddAsync(newDay);
+                schedules.Add(newDay);
+            }
         }
-        TempData["Success"] = "Reply sent.";
-        return RedirectToAction("MessageDetails", new { id });
+        await _unitOfWork.SaveChangesAsync();
+
+        // Return the view with the schedules as model
+        return View(schedules.OrderBy(s => s.DayOfWeek).ToList());
+    }
+
+        [HttpPost]
+    [ValidateAntiForgeryToken]
+    public async Task<IActionResult> WorkingHours(List<WeekdaySchedule> schedules)
+    {
+        foreach (var incoming in schedules)
+        {
+            var existing = await _unitOfWork.WeekdaySchedules.GetByIdAsync(incoming.Id);
+            if (existing != null)
+            {
+                existing.OpenTime = incoming.OpenTime;
+                existing.CloseTime = incoming.CloseTime;
+                existing.BreakStart = incoming.BreakStart;
+                existing.BreakEnd = incoming.BreakEnd;
+                _unitOfWork.WeekdaySchedules.Update(existing);
+            }
+        }
+        await _unitOfWork.SaveChangesAsync();
+        TempData["Success"] = "Working hours updated.";
+        return RedirectToAction("WorkingHours");
     }
 }

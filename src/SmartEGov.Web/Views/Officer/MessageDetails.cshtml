@@ -1,0 +1,30 @@
+﻿@model SmartEGov.Domain.Entities.SupportMessage
+@{
+    ViewData["Title"] = Model.Subject;
+}
+
+<div class="lb-page-header">
+    <h2><i class="bi bi-chat-dots me-2"></i>@Model.Subject</h2>
+    <a asp-action="SupportMessages" class="btn btn-lb-outline btn-sm"><i class="bi bi-arrow-left me-1"></i>Back</a>
+</div>
+
+<div class="card mb-3">
+    <div class="card-body">
+        <small class="text-muted d-block mb-2">@Model.CitizenName</small>
+        <p class="mb-2">@Model.Message</p>
+
+        @foreach (var r in Model.Replies.OrderBy(x => x.CreatedAt))
+        {
+            <div class="border-start border-3 ps-3 mb-2" style="border-color:@(r.IsFromAdmin ? "var(--lb-green)" : "#999") !important;">
+                <div class="fw-semibold small" style="color:@(r.IsFromAdmin ? "var(--lb-green)" : "#666");">@r.SenderName</div>
+                <div class="small text-muted">@r.Text</div>
+            </div>
+        }
+
+        <form asp-action="ReplyToMessage" asp-route-id="@Model.Id" method="post" class="d-flex gap-2 mt-3">
+            @Html.AntiForgeryToken()
+            <input type="text" name="reply" class="form-control form-control-sm" placeholder="Type a reply..." required />
+            <button type="submit" class="btn btn-sm btn-lb-primary">Send</button>
+        </form>
+    </div>
+</div>

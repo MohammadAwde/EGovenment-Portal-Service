@@ -1,8 +1,13 @@
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.AspNetCore.Mvc;
+using Microsoft.AspNetCore.SignalR;
+using SmartEGov.Application.Interfaces;
 using SmartEGov.Application.Services;
 using SmartEGov.Domain.Entities;
+using SmartEGov.Application.DTOs;
+using Microsoft.AspNetCore.SignalR;
+using SmartEGov.Application.Interfaces;
 
 namespace SmartEGov.Web.Controllers;
 
@@ -13,17 +18,23 @@ public class OfficerController : Controller
     private readonly UserManager<ApplicationUser> _userManager;
     private readonly IWebHostEnvironment _environment;
     private readonly IAuditLogService _auditLogService;
+    private readonly IUnitOfWork _unitOfWork;
+    private readonly IHubContext<SmartEGov.Web.Hubs.SupportHub> _hub;
 
     public OfficerController(
         IDashboardService dashboardService,
         UserManager<ApplicationUser> userManager,
         IWebHostEnvironment environment,
-        IAuditLogService auditLogService)
+        IAuditLogService auditLogService,
+        IUnitOfWork unitOfWork,
+        IHubContext<SmartEGov.Web.Hubs.SupportHub> hub)
     {
         _dashboardService = dashboardService;
         _userManager = userManager;
         _environment = environment;
         _auditLogService = auditLogService;
+        _unitOfWork = unitOfWork;
+        _hub = hub;
     }
 
     public async Task<IActionResult> Dashboard()
@@ -162,5 +173,105 @@ public class OfficerController : Controller
 
         TempData["Success"] = "Digital signature removed.";
         return RedirectToAction("Signature");
+    }
+    [HttpGet]
+    public async Task<IActionResult> SupportMessages()
+    {
+        var messages = await _unitOfWork.SupportMessages.GetAllWithRepliesAsync();
+        return View(messages);
+    }
+
+    [HttpGet]
+    public async Task<IActionResult> MessageDetails(int id)
+    {
+        var msg = await _unitOfWork.SupportMessages.GetByIdWithRepliesAsync(id);
+        if (msg == null) return NotFound();
+        return View(msg);
+    }
+
+    [HttpPost]
+    [ValidateAntiForgeryToken]
+    public async Task<IActionResult> ReplyToMessage(int id, string reply)
+    {
+        var msg = await _unitOfWork.SupportMessages.GetByIdWithRepliesAsync(id);
+        if (msg != null && !string.IsNullOrWhiteSpace(reply))
+        {
+            var officerId = _userManager.GetUserId(User)!;
+            var newReply = new SupportReply
+            {
+                SupportMessageId = id,
+                SenderUserId = officerId,
+                SenderName = "Officer",
+                IsFromAdmin = true,
+                Text = reply
+            };
+            await _unitOfWork.SupportReplies.AddAsync(newReply);
+
+            msg.Status = "Answered";
+            _unitOfWork.SupportMessages.Update(msg);
+            await _unitOfWork.SaveChangesAsync();
+
+            await _hub.Clients.Group(msg.CitizenUserId).SendAsync("ReceiveReply", msg.Id, reply);
+        }
+        TempData["Success"] = "Reply sent.";
+        return RedirectToAction("MessageDetails", new { id });
+    }
+    public async Task<IActionResult> Appointments()
+    {
+        var all = await _unitOfWork.Appointments.GetAllAsync();
+        var dtos = all.Select(a => new AppointmentDto
+        {
+            Id = a.Id,
+            UserId = a.UserId,
+            ServiceCenterId = a.ServiceCenterId,
+            GovernmentServiceId = a.GovernmentServiceId,
+            AppointmentDate = a.AppointmentDate,
+            TimeSlot = a.TimeSlot,
+            Status = a.Status,
+            ReferenceNumber = a.ReferenceNumber,
+            CreatedAt = a.CreatedAt,
+            ServiceCenterName = a.ServiceCenter?.CenterName,
+            ServiceCenterAddress = a.ServiceCenter?.Address,
+            GovernmentServiceName = a.GovernmentService?.Name
+        });
+        return View(dtos);
+    }
+
+    [HttpPost, ValidateAntiForgeryToken]
+    public async Task<IActionResult> MarkAppointmentCompleted(int id)
+    {
+        var a = await _unitOfWork.Appointments.GetByIdAsync(id);
+        if (a != null)
+        {
+            if (a.AppointmentDate.Date > DateTime.Today)
+            {
+                TempData["Error"] = "Cannot mark a future appointment as completed.";
+                return RedirectToAction("Appointments");
+            }
+            a.Status = "Completed";
+            _unitOfWork.Appointments.Update(a);
+            await _unitOfWork.SaveChangesAsync();
+        }
+        TempData["Success"] = "Appointment marked as completed.";
+        return RedirectToAction("Appointments");
+    }
+
+    [HttpPost, ValidateAntiForgeryToken]
+    public async Task<IActionResult> MarkAppointmentNoShow(int id)
+    {
+        var a = await _unitOfWork.Appointments.GetByIdAsync(id);
+        if (a != null)
+        {
+            if (a.AppointmentDate.Date > DateTime.Today)
+            {
+                TempData["Error"] = "Cannot mark a future appointment as no-show.";
+                return RedirectToAction("Appointments");
+            }
+            a.Status = "No-Show";
+            _unitOfWork.Appointments.Update(a);
+            await _unitOfWork.SaveChangesAsync();
+        }
+        TempData["Success"] = "Appointment marked as no-show.";
+        return RedirectToAction("Appointments");
     }
 }

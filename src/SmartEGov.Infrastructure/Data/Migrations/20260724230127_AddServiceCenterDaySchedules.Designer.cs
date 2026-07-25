@@ -3,6 +3,7 @@ using System;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Infrastructure;
 using Microsoft.EntityFrameworkCore.Metadata;
+using Microsoft.EntityFrameworkCore.Migrations;
 using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 using SmartEGov.Infrastructure.Data;
 
@@ -11,9 +12,11 @@ using SmartEGov.Infrastructure.Data;
 namespace SmartEGov.Infrastructure.Data.Migrations
 {
     [DbContext(typeof(ApplicationDbContext))]
-    partial class ApplicationDbContextModelSnapshot : ModelSnapshot
+    [Migration("20260724230127_AddServiceCenterDaySchedules")]
+    partial class AddServiceCenterDaySchedules
     {
-        protected override void BuildModel(ModelBuilder modelBuilder)
+        /// <inheritdoc />
+        protected override void BuildTargetModel(ModelBuilder modelBuilder)
         {
 #pragma warning disable 612, 618
             modelBuilder
@@ -1145,34 +1148,6 @@ namespace SmartEGov.Infrastructure.Data.Migrations
                     b.HasIndex("SupportMessageId");
 
                     b.ToTable("SupportReplies");
-                });
-
-            modelBuilder.Entity("SmartEGov.Domain.Entities.WeekdaySchedule", b =>
-                {
-                    b.Property<int>("Id")
-                        .ValueGeneratedOnAdd()
-                        .HasColumnType("int");
-
-                    SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<int>("Id"));
-
-                    b.Property<TimeSpan>("BreakEnd")
-                        .HasColumnType("time");
-
-                    b.Property<TimeSpan>("BreakStart")
-                        .HasColumnType("time");
-
-                    b.Property<TimeSpan>("CloseTime")
-                        .HasColumnType("time");
-
-                    b.Property<int>("DayOfWeek")
-                        .HasColumnType("int");
-
-                    b.Property<TimeSpan>("OpenTime")
-                        .HasColumnType("time");
-
-                    b.HasKey("Id");
-
-                    b.ToTable("WeekdaySchedules");
                 });
 
             modelBuilder.Entity("Microsoft.AspNetCore.Identity.IdentityRoleClaim<string>", b =>

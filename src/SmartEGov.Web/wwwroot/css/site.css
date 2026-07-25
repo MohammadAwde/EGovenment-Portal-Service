@@ -1794,3 +1794,24 @@ html.dark-theme, body.dark-theme {
             box-shadow: none;
         }
 }
+
+/* small offset below navbar for non-home pages */
+.lb-main-offset {
+    padding-top: var(--lb-space-md); /* 1rem (≈16px). Increase to var(--lb-space-lg) for more space */
+}
+
+/* ============================================================
+   36. TABLE ACTION BUTTONS — keep action buttons side-by-side
+   ============================================================ */
+table td form.d-inline {
+    display: inline-block;
+    vertical-align: middle;
+    margin-right: 0.35rem; /* small gap between buttons */
+    margin-bottom: 0;
+}
+
+table td form.d-inline .btn {
+    margin-bottom: var(--lb-space-xs);
+    display: block;
+    width: 100%;
+}

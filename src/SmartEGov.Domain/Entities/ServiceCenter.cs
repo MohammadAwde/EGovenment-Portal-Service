@@ -19,4 +19,5 @@ public class ServiceCenter
     public TimeSpan LunchBreakStart { get; set; } = new TimeSpan(12, 0, 0);
     public TimeSpan LunchBreakEnd { get; set; } = new TimeSpan(13, 0, 0);
     public ICollection<Appointment> Appointments { get; set; } = new List<Appointment>();
+    public ICollection<ServiceCenterDaySchedule> DaySchedules { get; set; } = new List<ServiceCenterDaySchedule>();
 }

@@ -80,27 +80,26 @@ public class AppointmentService : IAppointmentService
         if (isHoliday) return [];
 
         var center = await _centers.GetByIdAsync(serviceCenterId);
+        if (center == null) return [];
+
         var service = await _unitOfWork.GovernmentServices.GetByIdAsync(governmentServiceId);
-        if (center == null || service == null) return [];
+        if (service == null) return [];
 
         var duration = service.SlotDurationMinutes > 0 ? service.SlotDurationMinutes : 30;
 
-        var start = center.WorkingHoursStart;
-        var end = center.WorkingHoursEnd;
+        var allSchedules = await _unitOfWork.WeekdaySchedules.GetAllAsync();
+        var daySchedule = allSchedules.FirstOrDefault(s => s.DayOfWeek == date.DayOfWeek);
+        if (daySchedule == null) return [];
 
-        // Friday: morning only, capped at 12:00 regardless of the center's normal closing time
-        if (date.DayOfWeek == DayOfWeek.Friday)
-        {
-            var noon = new TimeSpan(12, 0, 0);
-            if (end > noon) end = noon;
-        }
+        var start = daySchedule.OpenTime;
+        var end = daySchedule.CloseTime;
 
         var slots = new List<string>();
         var cur = start;
         while (cur + TimeSpan.FromMinutes(duration) <= end)
         {
             var slotEnd = cur + TimeSpan.FromMinutes(duration);
-            var overlapsLunch = cur < center.LunchBreakEnd && slotEnd > center.LunchBreakStart;
+            var overlapsLunch = cur < daySchedule.BreakEnd && slotEnd > daySchedule.BreakStart;
             if (!overlapsLunch)
                 slots.Add($"{cur.Hours:D2}:{cur.Minutes:D2}-{slotEnd.Hours:D2}:{slotEnd.Minutes:D2}");
             cur += TimeSpan.FromMinutes(duration);

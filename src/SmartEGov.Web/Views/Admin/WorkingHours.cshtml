@@ -1,0 +1,57 @@
+﻿@model List<SmartEGov.Domain.Entities.WeekdaySchedule>
+@{
+    ViewData["Title"] = "Working Hours";
+    var dayNames = new Dictionary<DayOfWeek, string>
+    {
+        { DayOfWeek.Monday, "Monday" }, { DayOfWeek.Tuesday, "Tuesday" },
+        { DayOfWeek.Wednesday, "Wednesday" }, { DayOfWeek.Thursday, "Thursday" },
+        { DayOfWeek.Friday, "Friday" }
+    };
+}
+
+<div class="lb-page-header">
+    <h2><i class="bi bi-clock me-2"></i>Working Hours</h2>
+    <p>Weekdays only — Saturday and Sunday are always closed.</p>
+</div>
+
+@if (TempData["Success"] != null)
+{
+    <div class="alert alert-success">@TempData["Success"]</div>
+}
+
+<div class="lb-form-card">
+    <form asp-action="WorkingHours" method="post">
+        @Html.AntiForgeryToken()
+        <div class="table-responsive">
+            <table class="table align-middle">
+                <thead>
+                    <tr>
+                        <th>Day</th>
+                        <th>Opens</th>
+                        <th>Closes</th>
+                        <th>Break starts</th>
+                        <th>Break ends</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    @for (int i = 0; i < Model.Count; i++)
+                    {
+                        var s = Model[i];
+                        <tr>
+                            <td class="fw-semibold">@dayNames[s.DayOfWeek]</td>
+                            <td>
+                                <input type="hidden" name="schedules[@i].Id" value="@s.Id" />
+                                <input type="hidden" name="schedules[@i].DayOfWeek" value="@((int)s.DayOfWeek)" />
+                                <input type="time" name="schedules[@i].OpenTime" value="@s.OpenTime.ToString(@"hh\:mm")" class="form-control form-control-sm" />
+                            </td>
+                            <td><input type="time" name="schedules[@i].CloseTime" value="@s.CloseTime.ToString(@"hh\:mm")" class="form-control form-control-sm" /></td>
+                            <td><input type="time" name="schedules[@i].BreakStart" value="@s.BreakStart.ToString(@"hh\:mm")" class="form-control form-control-sm" /></td>
+                            <td><input type="time" name="schedules[@i].BreakEnd" value="@s.BreakEnd.ToString(@"hh\:mm")" class="form-control form-control-sm" /></td>
+                        </tr>
+                    }
+                </tbody>
+            </table>
+        </div>
+        <button type="submit" class="btn btn-lb-primary mt-2">Save</button>
+    </form>
+</div>

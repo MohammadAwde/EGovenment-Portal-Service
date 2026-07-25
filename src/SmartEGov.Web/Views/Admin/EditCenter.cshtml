@@ -1,6 +1,12 @@
 ﻿@model SmartEGov.Domain.Entities.ServiceCenter
 @{
-    ViewData["Title"] = "Edit Center Hours";
+    ViewData["Title"] = "Edit Hours";
+    var dayNames = new Dictionary<DayOfWeek, string>
+    {
+        { DayOfWeek.Monday, "Monday" }, { DayOfWeek.Tuesday, "Tuesday" },
+        { DayOfWeek.Wednesday, "Wednesday" }, { DayOfWeek.Thursday, "Thursday" },
+        { DayOfWeek.Friday, "Friday" }
+    };
 }
 
 <div class="lb-page-header">
@@ -9,6 +15,7 @@
 
 <div class="lb-form-card">
     <form asp-action="EditCenter" method="post">
+        @Html.AntiForgeryToken()
         <input type="hidden" asp-for="Id" />
         <input type="hidden" asp-for="CenterName" />
         <input type="hidden" asp-for="Department" />
@@ -18,27 +25,12 @@
         <input type="hidden" asp-for="WorkingHours" />
         <input type="hidden" asp-for="PhoneNumber" />
         <input type="hidden" asp-for="IsActive" />
+        <input type="hidden" asp-for="WorkingHoursStart" />
+        <input type="hidden" asp-for="WorkingHoursEnd" />
+        <input type="hidden" asp-for="LunchBreakStart" />
+        <input type="hidden" asp-for="LunchBreakEnd" />
 
-        <div class="row">
-            <div class="col-md-6 mb-3">
-                <label class="form-label">Opens at</label>
-                <input asp-for="WorkingHoursStart" class="form-control" type="time" />
-            </div>
-            <div class="col-md-6 mb-3">
-                <label class="form-label">Closes at</label>
-                <input asp-for="WorkingHoursEnd" class="form-control" type="time" />
-            </div>
-            <div class="col-md-6 mb-3">
-                <label class="form-label">Lunch break starts</label>
-                <input asp-for="LunchBreakStart" class="form-control" type="time" />
-            </div>
-            <div class="col-md-6 mb-3">
-                <label class="form-label">Lunch break ends</label>
-                <input asp-for="LunchBreakEnd" class="form-control" type="time" />
-            </div>
-        </div>
-
-        <div class="row mt-2">
+        <div class="row mb-3">
             <div class="col-md-4 mb-3 form-check">
                 <input asp-for="WorksOnSaturday" class="form-check-input" type="checkbox" />
                 <label asp-for="WorksOnSaturday" class="form-check-label">Open on Saturday</label>
@@ -47,12 +39,42 @@
                 <input asp-for="WorksOnSunday" class="form-check-input" type="checkbox" />
                 <label asp-for="WorksOnSunday" class="form-check-label">Open on Sunday</label>
             </div>
-            <div class="col-md-4 mb-3">
-                <label class="form-label">Friday closing time (leave empty = same as normal closing)</label>
-                <input asp-for="FridayClosingOverride" class="form-control" type="time" />
-            </div>
         </div>
 
-        <button type="submit" class="btn btn-lb-primary">Save</button>
+        <p class="text-muted small">Weekday hours (Saturday and Sunday use the checkboxes above; no separate hours for them).</p>
+
+        <div class="table-responsive">
+            <table class="table align-middle">
+                <thead>
+                    <tr>
+                        <th>Day</th>
+                        <th>Opens</th>
+                        <th>Closes</th>
+                        <th>Break starts</th>
+                        <th>Break ends</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    @for (int i = 0; i < Model.DaySchedules.Count; i++)
+                    {
+                        var s = Model.DaySchedules.ElementAt(i);
+                        <tr>
+                            <td class="fw-semibold">@dayNames[s.DayOfWeek]</td>
+                            <td>
+                                <input type="hidden" name="daySchedules[@i].Id" value="@s.Id" />
+                                <input type="hidden" name="daySchedules[@i].ServiceCenterId" value="@s.ServiceCenterId" />
+                                <input type="hidden" name="daySchedules[@i].DayOfWeek" value="@((int)s.DayOfWeek)" />
+                                <input type="time" name="daySchedules[@i].OpenTime" value="@s.OpenTime.ToString(@"hh\:mm")" class="form-control form-control-sm" />
+                            </td>
+                            <td><input type="time" name="daySchedules[@i].CloseTime" value="@s.CloseTime.ToString(@"hh\:mm")" class="form-control form-control-sm" /></td>
+                            <td><input type="time" name="daySchedules[@i].BreakStart" value="@s.BreakStart.ToString(@"hh\:mm")" class="form-control form-control-sm" /></td>
+                            <td><input type="time" name="daySchedules[@i].BreakEnd" value="@s.BreakEnd.ToString(@"hh\:mm")" class="form-control form-control-sm" /></td>
+                        </tr>
+                    }
+                </tbody>
+            </table>
+        </div>
+
+        <button type="submit" class="btn btn-lb-primary mt-2">Save</button>
     </form>
 </div>

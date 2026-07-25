@@ -31,6 +31,8 @@ public class ApplicationDbContext : IdentityDbContext<ApplicationUser>
     public DbSet<AppointmentReminderLog> AppointmentReminderLogs { get; set; }
     public DbSet<SupportMessage> SupportMessages => Set<SupportMessage>();
     public DbSet<SupportReply> SupportReplies => Set<SupportReply>();
+    public DbSet<ServiceCenterDaySchedule> ServiceCenterDaySchedules => Set<ServiceCenterDaySchedule>();
+    public DbSet<WeekdaySchedule> WeekdaySchedules => Set<WeekdaySchedule>();
 
     protected override void OnModelCreating(ModelBuilder builder)
     {

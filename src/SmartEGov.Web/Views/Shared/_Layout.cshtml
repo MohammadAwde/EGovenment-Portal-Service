@@ -51,6 +51,12 @@
         var isAdmin = User.IsInRole("Admin");
         var isOfficer = User.IsInRole("Officer");
         var isCitizen = User.IsInRole("Citizen");
+
+        // route detection — treat Home/Index as the homepage (no offset)
+        var currentController = (string?)ViewContext.RouteData.Values["controller"] ?? "";
+        var currentAction = (string?)ViewContext.RouteData.Values["action"] ?? "";
+        var isHomePage = string.Equals(currentController, "Home", System.StringComparison.OrdinalIgnoreCase)
+                         && string.Equals(currentAction, "Index", System.StringComparison.OrdinalIgnoreCase);
     }
 
     <!-- Top Bar -->
@@ -166,13 +172,8 @@
                             </a>
                         </li>
                         <li class="nav-item">
-                            <a class="nav-link" asp-controller="Admin" asp-action="ServiceCenters">
-                                <i class="bi bi-geo-alt me-1"></i>Service Centers
-                            </a>
-                        </li>
-                        <li class="nav-item">
-                            <a class="nav-link" asp-controller="Admin" asp-action="SupportMessages">
-                                <i class="bi bi-chat-dots me-1"></i>Support Messages
+                            <a class="nav-link" asp-controller="Admin" asp-action="WorkingHours">
+                                <i class="bi bi-clock me-1"></i>Working Hours
                             </a>
                         </li>
                     }
@@ -187,6 +188,16 @@
                         <li class="nav-item">
                             <a class="nav-link" asp-controller="Officer" asp-action="Signature">
                                 <i class="bi bi-vector-pen me-1"></i>My Signature
+                            </a>
+                        </li>
+                        <li class="nav-item">
+                            <a class="nav-link" asp-controller="Officer" asp-action="SupportMessages">
+                                <i class="bi bi-chat-dots me-1"></i>Support Messages
+                            </a>
+                        </li>
+                        <li class="nav-item">
+                            <a class="nav-link" asp-controller="Officer" asp-action="Appointments">
+                                <i class="bi bi-calendar-check me-1"></i>Appointments
                             </a>
                         </li>
                     }
@@ -228,7 +239,7 @@
     </nav>
 
     <!-- Main Content -->
-    <main class="lb-main-content">
+    <main class="lb-main-content @(isHomePage ? "" : "lb-main-offset")">
         <div class="container-fluid px-3 lb-container">
             @RenderBody()
         </div>

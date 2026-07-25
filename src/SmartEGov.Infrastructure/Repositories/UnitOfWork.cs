@@ -28,6 +28,8 @@ public class UnitOfWork : IUnitOfWork
         PublicHolidays = new PublicHolidayRepository(context);
         SupportMessages = new SupportMessageRepository(context);
         SupportReplies = new Repository<SupportReply>(context);
+        ServiceCenterDaySchedules = new Repository<ServiceCenterDaySchedule>(context);
+        WeekdaySchedules = new Repository<WeekdaySchedule>(context);
     }
 
     public ICitizenRepository Citizens { get; }
@@ -46,6 +48,8 @@ public class UnitOfWork : IUnitOfWork
     public IPublicHolidayRepository PublicHolidays { get; }
     public ISupportMessageRepository SupportMessages { get; }
     public IRepository<SupportReply> SupportReplies { get; }
+    public IRepository<ServiceCenterDaySchedule> ServiceCenterDaySchedules { get; }
+    public IRepository<WeekdaySchedule> WeekdaySchedules { get; }
 
 
     public async Task<int> SaveChangesAsync()

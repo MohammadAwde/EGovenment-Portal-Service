@@ -20,5 +20,7 @@ public interface IUnitOfWork : IDisposable
     IPublicHolidayRepository PublicHolidays { get; }
     ISupportMessageRepository SupportMessages { get; }
     IRepository<SupportReply> SupportReplies { get; }
+    IRepository<ServiceCenterDaySchedule> ServiceCenterDaySchedules { get; }
+    IRepository<WeekdaySchedule> WeekdaySchedules { get; }
     Task<int> SaveChangesAsync();
 }
