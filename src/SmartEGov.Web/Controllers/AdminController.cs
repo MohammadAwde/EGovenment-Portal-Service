@@ -462,60 +462,82 @@ public class AdminController : Controller
         }
         return RedirectToAction("Holidays");
     }
+
     [HttpGet]
     public async Task<IActionResult> WorkingHours()
     {
-        var all = (await _unitOfWork.WeekdaySchedules.GetAllAsync()).ToList();
+        var all = (await _unitOfWork.WorkPeriods.GetAllAsync()).ToList();
+        var days = new[] { DayOfWeek.Monday, DayOfWeek.Tuesday, DayOfWeek.Wednesday, DayOfWeek.Thursday, DayOfWeek.Friday, DayOfWeek.Saturday, DayOfWeek.Sunday };
 
-        // Remove duplicates: keep only the highest Id (most recently saved) per day
-        var duplicates = all
-            .GroupBy(s => s.DayOfWeek)
-            .Where(g => g.Count() > 1)
-            .SelectMany(g => g.OrderBy(s => s.Id).SkipLast(1));
-
-        foreach (var dup in duplicates)
+        var model = days.Select(d =>
         {
-            _unitOfWork.WeekdaySchedules.Remove(dup);
-        }
-        if (duplicates.Any())
-            await _unitOfWork.SaveChangesAsync();
+            var periods = all.Where(p => p.DayOfWeek == d).OrderBy(p => p.StartTime).ToList();
+            var breaks = new List<(TimeSpan Start, TimeSpan End)>();
+            for (int i = 0; i < periods.Count - 1; i++)
+                breaks.Add((periods[i].EndTime, periods[i + 1].StartTime));
 
-        var schedules = all.GroupBy(s => s.DayOfWeek).Select(g => g.OrderBy(s => s.Id).Last()).ToList();
-
-        var weekdays = new[] { DayOfWeek.Monday, DayOfWeek.Tuesday, DayOfWeek.Wednesday, DayOfWeek.Thursday, DayOfWeek.Friday };
-        foreach (var day in weekdays)
-        {
-            if (!schedules.Any(s => s.DayOfWeek == day))
+            return new DayInput
             {
-                var newDay = new WeekdaySchedule { DayOfWeek = day };
-                await _unitOfWork.WeekdaySchedules.AddAsync(newDay);
-                schedules.Add(newDay);
-            }
-        }
-        await _unitOfWork.SaveChangesAsync();
+                DayOfWeek = d,
+                OpenTime = periods.FirstOrDefault()?.StartTime,
+                CloseTime = periods.LastOrDefault()?.EndTime,
+                Breaks = breaks
+            };
+        }).ToList();
 
-        // Return the view with the schedules as model
-        return View(schedules.OrderBy(s => s.DayOfWeek).ToList());
+        return View(model);
     }
 
-        [HttpPost]
+    [HttpPost]
     [ValidateAntiForgeryToken]
-    public async Task<IActionResult> WorkingHours(List<WeekdaySchedule> schedules)
+    public async Task<IActionResult> WorkingHours(
+        List<DayOfWeek> days, List<string?> open, List<string?> close,
+        List<string?> break1Start, List<string?> break1End,
+        List<string?> break2Start, List<string?> break2End,
+        List<string?> break3Start, List<string?> break3End)
     {
-        foreach (var incoming in schedules)
+        var existing = (await _unitOfWork.WorkPeriods.GetAllAsync()).ToList();
+        foreach (var p in existing) _unitOfWork.WorkPeriods.Remove(p);
+
+        for (int i = 0; i < days.Count; i++)
         {
-            var existing = await _unitOfWork.WeekdaySchedules.GetByIdAsync(incoming.Id);
-            if (existing != null)
+            if (string.IsNullOrWhiteSpace(open[i]) || string.IsNullOrWhiteSpace(close[i]))
+                continue;
+
+            var dayOpen = TimeSpan.Parse(open[i]!);
+            var dayClose = TimeSpan.Parse(close[i]!);
+
+            var breaks = new List<(TimeSpan Start, TimeSpan End)>();
+            void addBreak(string? s, string? e)
             {
-                existing.OpenTime = incoming.OpenTime;
-                existing.CloseTime = incoming.CloseTime;
-                existing.BreakStart = incoming.BreakStart;
-                existing.BreakEnd = incoming.BreakEnd;
-                _unitOfWork.WeekdaySchedules.Update(existing);
+                if (!string.IsNullOrWhiteSpace(s) && !string.IsNullOrWhiteSpace(e))
+                    breaks.Add((TimeSpan.Parse(s), TimeSpan.Parse(e)));
             }
+            addBreak(break1Start[i], break1End[i]);
+            addBreak(break2Start[i], break2End[i]);
+            addBreak(break3Start[i], break3End[i]);
+            breaks = breaks.OrderBy(b => b.Start).ToList();
+
+            var cursor = dayOpen;
+            foreach (var b in breaks)
+            {
+                if (b.Start > cursor)
+                    await _unitOfWork.WorkPeriods.AddAsync(new WorkPeriod { DayOfWeek = days[i], StartTime = cursor, EndTime = b.Start });
+                if (b.End > cursor) cursor = b.End;
+            }
+            if (cursor < dayClose)
+                await _unitOfWork.WorkPeriods.AddAsync(new WorkPeriod { DayOfWeek = days[i], StartTime = cursor, EndTime = dayClose });
         }
+
         await _unitOfWork.SaveChangesAsync();
         TempData["Success"] = "Working hours updated.";
         return RedirectToAction("WorkingHours");
     }
+}
+public class DayInput
+{
+    public DayOfWeek DayOfWeek { get; set; }
+    public TimeSpan? OpenTime { get; set; }
+    public TimeSpan? CloseTime { get; set; }
+    public List<(TimeSpan Start, TimeSpan End)> Breaks { get; set; } = new();
 }

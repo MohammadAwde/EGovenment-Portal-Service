@@ -1,17 +1,11 @@
-﻿@model List<SmartEGov.Domain.Entities.WeekdaySchedule>
+﻿@model List<SmartEGov.Web.Controllers.DayInput>
 @{
     ViewData["Title"] = "Working Hours";
-    var dayNames = new Dictionary<DayOfWeek, string>
-    {
-        { DayOfWeek.Monday, "Monday" }, { DayOfWeek.Tuesday, "Tuesday" },
-        { DayOfWeek.Wednesday, "Wednesday" }, { DayOfWeek.Thursday, "Thursday" },
-        { DayOfWeek.Friday, "Friday" }
-    };
 }
 
 <div class="lb-page-header">
     <h2><i class="bi bi-clock me-2"></i>Working Hours</h2>
-    <p>Weekdays only — Saturday and Sunday are always closed.</p>
+    <p>Choose a day, set its hours, and add breaks as needed.</p>
 </div>
 
 @if (TempData["Success"] != null)
@@ -19,39 +13,107 @@
     <div class="alert alert-success">@TempData["Success"]</div>
 }
 
-<div class="lb-form-card">
-    <form asp-action="WorkingHours" method="post">
-        @Html.AntiForgeryToken()
-        <div class="table-responsive">
-            <table class="table align-middle">
-                <thead>
-                    <tr>
-                        <th>Day</th>
-                        <th>Opens</th>
-                        <th>Closes</th>
-                        <th>Break starts</th>
-                        <th>Break ends</th>
-                    </tr>
-                </thead>
-                <tbody>
-                    @for (int i = 0; i < Model.Count; i++)
-                    {
-                        var s = Model[i];
-                        <tr>
-                            <td class="fw-semibold">@dayNames[s.DayOfWeek]</td>
-                            <td>
-                                <input type="hidden" name="schedules[@i].Id" value="@s.Id" />
-                                <input type="hidden" name="schedules[@i].DayOfWeek" value="@((int)s.DayOfWeek)" />
-                                <input type="time" name="schedules[@i].OpenTime" value="@s.OpenTime.ToString(@"hh\:mm")" class="form-control form-control-sm" />
-                            </td>
-                            <td><input type="time" name="schedules[@i].CloseTime" value="@s.CloseTime.ToString(@"hh\:mm")" class="form-control form-control-sm" /></td>
-                            <td><input type="time" name="schedules[@i].BreakStart" value="@s.BreakStart.ToString(@"hh\:mm")" class="form-control form-control-sm" /></td>
-                            <td><input type="time" name="schedules[@i].BreakEnd" value="@s.BreakEnd.ToString(@"hh\:mm")" class="form-control form-control-sm" /></td>
-                        </tr>
-                    }
-                </tbody>
-            </table>
+<div class="d-flex flex-wrap gap-2 mb-3">
+    @for (int i = 0; i < Model.Count; i++)
+    {
+        <div class="form-check form-check-inline border rounded px-3 py-2">
+            <input type="checkbox" class="form-check-input day-toggle" id="dayToggle@(i)" data-index="@i" />
+            <label class="form-check-label" for="dayToggle@(i)">@Model[i].DayOfWeek</label>
         </div>
-        <button type="submit" class="btn btn-lb-primary mt-2">Save</button>
-    </form>
+    }
 </div>
+
+<form asp-action="WorkingHours" method="post">
+    @Html.AntiForgeryToken()
+
+    @for (int i = 0; i < Model.Count; i++)
+    {
+        var day = Model[i];
+        var b1 = day.Breaks.ElementAtOrDefault(0);
+        var b2 = day.Breaks.ElementAtOrDefault(1);
+        var b3 = day.Breaks.ElementAtOrDefault(2);
+
+        <div class="card mb-3 day-panel" data-index="@i" style="display:none;">
+            <div class="card-body">
+                <input type="hidden" name="days[@i]" value="@((int)day.DayOfWeek)" />
+
+                <h5 class="mb-3">@day.DayOfWeek</h5>
+
+                <label class="form-label small">Working hours (leave empty to close this day)</label>
+                <div class="row g-2 mb-3">
+                    <div class="col-auto"><input type="time" name="open[@i]" value="@(day.OpenTime?.ToString(@"hh\:mm"))" class="form-control form-control-sm" /></div>
+                    <div class="col-auto align-self-center">to</div>
+                    <div class="col-auto"><input type="time" name="close[@i]" value="@(day.CloseTime?.ToString(@"hh\:mm"))" class="form-control form-control-sm" /></div>
+                </div>
+
+                <label class="form-label small">Breaks</label>
+                <div class="row g-2 mb-2 break-row">
+                    <div class="col-auto"><input type="time" name="break1Start[@i]" value="@(b1.Start.ToString(@"hh\:mm"))" class="form-control form-control-sm" /></div>
+                    <div class="col-auto align-self-center">to</div>
+                    <div class="col-auto"><input type="time" name="break1End[@i]" value="@(b1.End.ToString(@"hh\:mm"))" class="form-control form-control-sm" /></div>
+                   
+                </div>
+                <div class="row g-2 mb-2 break-row" style="display:none;">
+                    <div class="col-auto"><input type="time" name="break2Start[@i]" value="@(b2.Start.ToString(@"hh\:mm"))" class="form-control form-control-sm" /></div>
+                    <div class="col-auto align-self-center">to</div>
+                    <div class="col-auto"><input type="time" name="break2End[@i]" value="@(b2.End.ToString(@"hh\:mm"))" class="form-control form-control-sm" /></div>
+                    <div class="col-auto"><button type="button" class="btn btn-sm btn-outline-danger remove-break-btn">✕</button></div>
+                </div>
+                <div class="row g-2 mb-2 break-row" style="display:none;">
+                    <div class="col-auto"><input type="time" name="break3Start[@i]" value="@(b3.Start.ToString(@"hh\:mm"))" class="form-control form-control-sm" /></div>
+                    <div class="col-auto align-self-center">to</div>
+                    <div class="col-auto"><input type="time" name="break3End[@i]" value="@(b3.End.ToString(@"hh\:mm"))" class="form-control form-control-sm" /></div>
+                    <div class="col-auto"><button type="button" class="btn btn-sm btn-outline-danger remove-break-btn">✕</button></div>
+                </div>
+
+                <button type="button" class="btn btn-sm btn-outline-secondary add-break-btn">+ Add break</button>
+                <button type="button" class="btn btn-sm btn-outline-danger clear-day-btn">Clear this day</button>
+            </div>
+        </div>
+    }
+
+    <button type="submit" class="btn btn-lb-primary">Save Working Hours</button>
+</form>
+
+@section Scripts {
+    <script>
+        document.querySelectorAll('.day-toggle').forEach(function (checkbox) {
+            checkbox.addEventListener('change', function () {
+                var panel = document.querySelector('.day-panel[data-index="' + this.dataset.index + '"]');
+                if (panel) panel.style.display = this.checked ? 'block' : 'none';
+            });
+        });
+
+        document.querySelectorAll('.clear-day-btn').forEach(function (btn) {
+            btn.addEventListener('click', function () {
+                var panel = btn.closest('.day-panel');
+                panel.querySelectorAll('input[type="time"]').forEach(function (input) {
+                    input.value = '';
+                });
+                panel.querySelectorAll('.break-row').forEach(function (row, idx) {
+                    if (idx > 0) row.style.display = 'none';
+                });
+            });
+        });
+
+        document.querySelectorAll('.remove-break-btn').forEach(function (btn) {
+            btn.addEventListener('click', function () {
+                var row = btn.closest('.break-row');
+                row.querySelectorAll('input[type="time"]').forEach(function (input) {
+                    input.value = '';
+                });
+                row.style.display = 'none';
+            });
+        });
+
+        document.querySelectorAll('.day-panel').forEach(function (panel) {
+            var addBtn = panel.querySelector('.add-break-btn');
+            if (addBtn) {
+                addBtn.addEventListener('click', function () {
+                    var hiddenRow = panel.querySelector('.break-row[style*="display:none"], .break-row[style*="display: none"]');
+                    if (hiddenRow) hiddenRow.style.display = '';
+                });
+            }
+        });
+    </script>
+}

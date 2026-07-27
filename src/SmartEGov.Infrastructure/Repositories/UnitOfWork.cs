@@ -29,7 +29,8 @@ public class UnitOfWork : IUnitOfWork
         SupportMessages = new SupportMessageRepository(context);
         SupportReplies = new Repository<SupportReply>(context);
         ServiceCenterDaySchedules = new Repository<ServiceCenterDaySchedule>(context);
-        WeekdaySchedules = new Repository<WeekdaySchedule>(context);
+        WorkPeriods = new Repository<WorkPeriod>(context);
+
     }
 
     public ICitizenRepository Citizens { get; }
@@ -49,7 +50,7 @@ public class UnitOfWork : IUnitOfWork
     public ISupportMessageRepository SupportMessages { get; }
     public IRepository<SupportReply> SupportReplies { get; }
     public IRepository<ServiceCenterDaySchedule> ServiceCenterDaySchedules { get; }
-    public IRepository<WeekdaySchedule> WeekdaySchedules { get; }
+    public IRepository<WorkPeriod> WorkPeriods { get; }
 
 
     public async Task<int> SaveChangesAsync()
