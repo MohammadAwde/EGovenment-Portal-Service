@@ -75,45 +75,51 @@ public class DashboardService : IDashboardService
     public async Task<OfficerDashboardDto> GetOfficerDashboardAsync(string officerId)
     {
         var assignments = await _context.OfficerServiceAssignments
+            .AsNoTracking()
             .Where(a => a.OfficerId == officerId)
             .Select(a => a.GovernmentServiceId)
             .ToListAsync();
 
-        var pendingRequests = Enumerable.Empty<ServiceRequest>();
-        if (assignments.Any())
-        {
-            // Use repository method to get non-terminal pending requests for assigned services
-            pendingRequests = (await _unitOfWork.ServiceRequests.GetPendingByServiceIdsAsync(assignments)).ToList();
-        }
+        // Query pending requests only for assigned services and only the counts and a small list
+        var pendingQuery = _context.ServiceRequests.AsNoTracking().Where(r => assignments.Contains(r.GovernmentServiceId)
+            && (r.Status == ServiceRequestStatus.Submitted || r.Status == ServiceRequestStatus.UnderReview));
 
-        var myActions = await _context.ApprovalSteps
-            .Include(s => s.ServiceRequest)
-            .Where(s => s.OfficerId == officerId && s.Status != ApprovalStatus.Pending)
-            .OrderByDescending(s => s.ActionDate)
+        var pendingSubmittedCount = await pendingQuery.CountAsync(r => r.Status == ServiceRequestStatus.Submitted);
+        var pendingUnderReviewCount = await pendingQuery.CountAsync(r => r.Status == ServiceRequestStatus.UnderReview);
+
+        var pendingList = await pendingQuery
+            .Include(r => r.GovernmentService)
+            .Include(r => r.Citizen)
+            .OrderByDescending(r => r.SubmittedAt)
+            .Take(10)
             .ToListAsync();
 
-        // Build assigned service summaries with pending counts
-        var assignedServices = await _context.GovernmentServices
-            .Where(g => assignments.Contains(g.Id))
-            .ToListAsync();
+        // Recent actions by this officer - only need counts and a small recent list
+        var myActionsQuery = _context.ApprovalSteps.AsNoTracking().Where(s => s.OfficerId == officerId && s.Status != ApprovalStatus.Pending);
+        var totalReviewedByMe = await myActionsQuery.CountAsync();
+        var approvedByMe = await myActionsQuery.CountAsync(a => a.Status == ApprovalStatus.Approved);
+        var rejectedByMe = await myActionsQuery.CountAsync(a => a.Status == ApprovalStatus.Rejected);
+        var recentActions = await myActionsQuery.Include(s => s.ServiceRequest).OrderByDescending(s => s.ActionDate).Take(10).ToListAsync();
+
+        var assignedServices = await _context.GovernmentServices.AsNoTracking().Where(g => assignments.Contains(g.Id)).ToListAsync();
 
         var assignedSummaries = assignedServices.Select(s => new AssignedServiceSummary
         {
             Id = s.Id,
             Name = s.Name,
             Fee = s.Fee,
-            PendingCount = pendingRequests.Count(r => r.GovernmentServiceId == s.Id)
+            PendingCount = pendingList.Count(r => r.GovernmentServiceId == s.Id)
         }).ToList();
 
         return new OfficerDashboardDto
         {
-            PendingRequests = pendingRequests.Count(r => r.Status == ServiceRequestStatus.Submitted),
-            UnderReviewRequests = pendingRequests.Count(r => r.Status == ServiceRequestStatus.UnderReview),
-            TotalReviewedByMe = myActions.Count,
-            ApprovedByMe = myActions.Count(a => a.Status == ApprovalStatus.Approved),
-            RejectedByMe = myActions.Count(a => a.Status == ApprovalStatus.Rejected),
-            PendingRequestsList = _mapper.Map<IEnumerable<ServiceRequestDto>>(pendingRequests.Take(10)),
-            RecentActions = _mapper.Map<IEnumerable<ApprovalStepDto>>(myActions.Take(10)),
+            PendingRequests = pendingSubmittedCount,
+            UnderReviewRequests = pendingUnderReviewCount,
+            TotalReviewedByMe = totalReviewedByMe,
+            ApprovedByMe = approvedByMe,
+            RejectedByMe = rejectedByMe,
+            PendingRequestsList = _mapper.Map<IEnumerable<ServiceRequestDto>>(pendingList),
+            RecentActions = _mapper.Map<IEnumerable<ApprovalStepDto>>(recentActions),
             AssignedServices = _mapper.Map<IEnumerable<GovernmentServiceDto>>(assignedServices),
             AssignedServiceSummaries = assignedSummaries
         };
