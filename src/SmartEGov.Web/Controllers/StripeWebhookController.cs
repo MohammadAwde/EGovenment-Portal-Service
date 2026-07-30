@@ -7,6 +7,7 @@ using Stripe;
 using Stripe.Checkout;
 using System.Net.Http;
 using System.Net.Sockets;
+using SmartEGov.Domain.Enums;
 
 namespace SmartEGov.Web.Controllers;
 
@@ -248,6 +249,29 @@ public class StripeWebhookController : ControllerBase
                         _logger.LogInformation("Payment(Id={PaymentId}) updated from CheckoutSessionCompleted: status={Status}, session={SessionId}, intent={IntentId}", payment.Id, payment.Status, sessionId, paymentIntentId);
                     }
 
+                    // If payment completed, transition the related service request so officers can continue processing
+                    try
+                    {
+                        if (payment.Status == SmartEGov.Domain.Enums.PaymentStatus.Completed)
+                        {
+                            var request = await _unitOfWork.ServiceRequests.GetWithDetailsAsync(payment.ServiceRequestId);
+                            if (request != null && request.Status == ServiceRequestStatus.PendingPayment)
+                            {
+                                request.Status = ServiceRequestStatus.UnderReview;
+                                _unitOfWork.ServiceRequests.Update(request);
+                                await _unitOfWork.SaveChangesAsync();
+
+                                // Notify the citizen that payment was received and the request is now pending officer processing
+                                await _notificationService.SendAsync(request.Citizen.UserId, "Payment received",
+                                    $"We received your payment for request {request.ReferenceNumber}. An officer will process your request shortly.");
+                            }
+                        }
+                    }
+                    catch (Exception ex)
+                    {
+                        _logger.LogWarning(ex, "Failed to update ServiceRequest status after payment completion for Payment.Id={PaymentId}", payment.Id);
+                    }
+
                     // Notify user and audit
                     await _notificationService.SendAsync(payment.UserId, "Payment successful",
                         $"Your payment of {payment.Amount:N0} LBP (Txn: {payment.TransactionNumber}) was successful.");
@@ -316,6 +340,25 @@ public class StripeWebhookController : ControllerBase
                         _unitOfWork.Payments.Update(payment2);
                         await _unitOfWork.SaveChangesAsync();
                         _logger.LogInformation("Payment(Id={PaymentId}) marked Completed from PaymentIntentSucceeded (intent={IntentId}).", payment2.Id, intentId);
+
+                        // After payment completes, allow officers to upload documents by moving the request out of PendingPayment
+                        try
+                        {
+                            var request2 = await _unitOfWork.ServiceRequests.GetWithDetailsAsync(payment2.ServiceRequestId);
+                            if (request2 != null && request2.Status == ServiceRequestStatus.PendingPayment)
+                            {
+                                request2.Status = ServiceRequestStatus.UnderReview;
+                                _unitOfWork.ServiceRequests.Update(request2);
+                                await _unitOfWork.SaveChangesAsync();
+
+                                await _notificationService.SendAsync(request2.Citizen.UserId, "Payment received",
+                                    $"We received your payment for request {request2.ReferenceNumber}. An officer will process your request shortly.");
+                            }
+                        }
+                        catch (Exception ex)
+                        {
+                            _logger.LogWarning(ex, "Failed to update ServiceRequest status after payment completion for Payment.Id={PaymentId}", payment2.Id);
+                        }
                     }
 
                     await _notificationService.SendAsync(payment2.UserId, "Payment successful",
