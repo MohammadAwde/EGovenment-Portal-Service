@@ -229,6 +229,29 @@ public class ServiceRequestService : IServiceRequestService
                 if (currentStep != null)
                     throw new InvalidOperationException("Cannot complete this request until the approval workflow is fully approved.");
             }
+            // Additionally, ensure payment has been completed before allowing completion.
+            // If the service requires a fee (Fee > 0) then at least one completed payment must exist.
+            var payments = await _unitOfWork.Payments.GetByServiceRequestIdAsync(request.Id);
+            var anyCompleted = payments != null && payments.Any(p => p.Status == PaymentStatus.Completed);
+
+            govService = govService ?? await _unitOfWork.GovernmentServices.GetWithWorkflowAsync(request.GovernmentServiceId);
+            var requiresPayment = govService != null && govService.Fee > 0m;
+
+            if (requiresPayment)
+            {
+                if (payments == null || !payments.Any() || !anyCompleted)
+                {
+                    throw new InvalidOperationException("Cannot complete this request until the payment has been completed.");
+                }
+            }
+            else
+            {
+                // If service does not require payment but payment records exist, ensure at least one is completed
+                if (payments != null && payments.Any() && !anyCompleted)
+                {
+                    throw new InvalidOperationException("Cannot complete this request until the payment has been completed.");
+                }
+            }
         }
 
         request.Status = Enum.Parse<ServiceRequestStatus>(status);
