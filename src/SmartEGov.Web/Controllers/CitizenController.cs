@@ -61,7 +61,15 @@ public class CitizenController : Controller
         var userId = _userManager.GetUserId(User);
         model.UserId = userId;
 
-        await _citizenService.CreateAsync(model);
+        try
+        {
+            await _citizenService.CreateAsync(model);
+        }
+        catch (InvalidOperationException ex)
+        {
+            ModelState.AddModelError("NationalId", ex.Message);
+            return View(model);
+        }
         return RedirectToAction("Index");
     }
 

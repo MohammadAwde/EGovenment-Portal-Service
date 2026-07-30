@@ -139,31 +139,76 @@
   // Dark mode toggle
   function initDarkMode() {
     var toggle = document.getElementById('toggleDarkMode');
-    if (!toggle) return;
-      function apply(isDark) {
-          if (isDark) document.body.classList.add('dark-theme'); else document.body.classList.remove('dark-theme');
-          var icon = toggle.querySelector('i');
-          if (icon) icon.className = isDark ? 'bi bi-sun-fill' : 'bi bi-moon-fill';
-          var label = toggle.querySelector('span');
-          if (label) label.textContent = isDark ? 'Light' : 'Dark';
-          try { localStorage.setItem('smartegov:dark', isDark ? '1' : '0'); } catch (e) { }
-      }
-    // initial state
-    try {
-      var stored = localStorage.getItem('smartegov:dark');
-      if (stored === null) {
-        // follow system preference
-        var prefers = window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches;
-        apply(prefers);
-      } else {
-        apply(stored === '1');
-      }
-    } catch(e) { apply(false); }
 
-    toggle.addEventListener('click', function () {
+    function setIconAndLabel(el, isDark) {
+      var icon = el ? el.querySelector('i') : null;
+      if (icon) {
+        icon.classList.remove('bi-moon-fill', 'bi-sun-fill');
+        icon.classList.add(isDark ? 'bi-sun-fill' : 'bi-moon-fill');
+      }
+      var label = el ? el.querySelector('span') : null;
+      if (label) label.textContent = isDark ? 'Light' : 'Dark';
+    }
+
+    function apply(isDark, el) {
+      document.body.classList.toggle('dark-theme', isDark);
+      document.documentElement.classList.toggle('dark-theme', isDark);
+      document.documentElement.setAttribute('data-theme', isDark ? 'dark' : 'light');
+      setIconAndLabel(el || toggle, isDark);
+      try { localStorage.setItem('smartegov:dark', isDark ? '1' : '0'); } catch (e) { /* ignore */ }
+    }
+
+    function applyStored(el) {
+      try {
+        var stored = localStorage.getItem('smartegov:dark');
+        if (stored === null) {
+          var prefers = window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches;
+          apply(prefers, el);
+        } else {
+          apply(stored === '1' || stored === 'true', el);
+        }
+      } catch (e) { apply(false, el); }
+    }
+
+    function handleToggle(el) {
       var isDark = document.body.classList.contains('dark-theme');
-      apply(!isDark);
-    });
+      apply(!isDark, el);
+    }
+
+    // If toggle exists now, wire it directly; otherwise use delegated handlers
+    if (toggle) {
+      applyStored(toggle);
+      toggle.addEventListener('click', function (e) {
+        if (e) e.preventDefault();
+        handleToggle(toggle);
+      });
+      toggle.addEventListener('keydown', function (e) {
+        if (e.key === 'Enter' || e.key === ' ') {
+          e.preventDefault();
+          handleToggle(toggle);
+        }
+      });
+    } else {
+      // Delegated click (useful for Blazor rendering the element later)
+      document.addEventListener('click', function (e) {
+        var t = e.target && e.target.closest && e.target.closest('#toggleDarkMode');
+        if (!t) return;
+        if (e) e.preventDefault();
+        // ensure initial state applies even if we didn't find toggle earlier
+        applyStored(t);
+        handleToggle(t);
+      });
+      document.addEventListener('keydown', function (e) {
+        if (e.key !== 'Enter' && e.key !== ' ') return;
+        var t = document.activeElement && document.activeElement.closest && document.activeElement.closest('#toggleDarkMode');
+        if (!t) return;
+        e.preventDefault();
+        applyStored(t);
+        handleToggle(t);
+      });
+      // apply stored preference now in case CSS expects it regardless of toggle
+      applyStored();
+    }
   }
 
   function init() {
@@ -250,3 +295,4 @@
     });
   }
 })();
+

@@ -38,6 +38,13 @@ public class CitizenService : ICitizenService
 
     public async Task<CitizenDto> CreateAsync(CitizenDto dto)
     {
+        if (!string.IsNullOrWhiteSpace(dto.NationalId))
+        {
+            var existing = await _unitOfWork.Citizens.GetByNationalIdAsync(dto.NationalId);
+            if (existing != null)
+                throw new InvalidOperationException("This National ID is already registered to another profile.");
+        }
+
         var citizen = _mapper.Map<Citizen>(dto);
         citizen.UserId = dto.UserId!;
 

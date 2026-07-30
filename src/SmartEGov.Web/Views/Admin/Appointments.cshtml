@@ -118,7 +118,7 @@ else
                             data-date="@a.AppointmentDate.ToString("yyyy-MM-dd")"
                             data-search="@(a.ReferenceNumber + " " + a.ServiceCenterName + " " + a.GovernmentServiceName)">
                             <td><code>@a.ReferenceNumber</code></td>
-                            <td><small>@a.UserId</small></td>
+                            <td>@(a.CitizenName ?? a.UserId)</td>
                             <td>
                                 @a.ServiceCenterName
                                 <small class="d-block text-muted">@a.ServiceCenterAddress</small>

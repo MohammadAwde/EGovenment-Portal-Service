@@ -56,7 +56,7 @@ else
                     {
                         <tr>
                             <td><code>@a.ReferenceNumber</code></td>
-                            <td><small>@a.UserId</small></td>
+                            <td>@(a.CitizenName ?? a.UserId)</td>
                             <td>
                                 @a.ServiceCenterName
                                 <small class="d-block text-muted">@a.ServiceCenterAddress</small>

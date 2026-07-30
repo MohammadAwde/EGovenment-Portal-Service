@@ -24,6 +24,7 @@ public class AppointmentDto
     public int Id { get; set; }
     public int QueueNumber { get; set; }
     public string UserId { get; set; } = string.Empty;
+    public string? CitizenName { get; set; }
     [Required] public int ServiceCenterId { get; set; }
     [Required] public int GovernmentServiceId { get; set; }
     [Required][DataType(DataType.Date)] public DateTime AppointmentDate { get; set; }

@@ -222,6 +222,7 @@ public class OfficerController : Controller
         {
             Id = a.Id,
             UserId = a.UserId,
+            CitizenName = a.User?.FullName ?? a.User?.Email,
             ServiceCenterId = a.ServiceCenterId,
             GovernmentServiceId = a.GovernmentServiceId,
             AppointmentDate = a.AppointmentDate,
