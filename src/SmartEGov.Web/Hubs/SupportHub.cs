@@ -8,4 +8,8 @@ public class SupportHub : Hub
     {
         await Groups.AddToGroupAsync(Context.ConnectionId, userId);
     }
+    public async Task JoinMessageGroup(int messageId)
+    {
+        await Groups.AddToGroupAsync(Context.ConnectionId, $"message-{messageId}");
+    }
 }

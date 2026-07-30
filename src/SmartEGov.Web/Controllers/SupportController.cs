@@ -79,6 +79,7 @@ public class SupportController : Controller
         msg.Status = "Open";
         _unitOfWork.SupportMessages.Update(msg);
         await _unitOfWork.SaveChangesAsync();
+        await _hub.Clients.Group($"message-{messageId}").SendAsync("ReceiveReply", messageId, text);
         return RedirectToAction("Details", new { id = messageId });
     }
 

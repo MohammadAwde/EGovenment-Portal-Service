@@ -188,72 +188,73 @@
             handleFiles(files);
         });
 
-        function handleFiles(files) {
-            selectedFiles = [];
-            filePreviewList.innerHTML = '';
-            
-            let hasErrors = false;
-            const errors = [];
+       function handleFiles(newFiles) {
+    let hasErrors = false;
+    const errors = [];
 
-            files.forEach((file, index) => {
-                // Validate file size
-                if (file.size > maxSizeMB * 1024 * 1024) {
-                    errors.push(`${file.name} exceeds maximum size of ${maxSizeMB}MB`);
-                    hasErrors = true;
-                    return;
-                }
-
-                // Validate file type
-                const extension = '.' + file.name.split('.').pop().toLowerCase();
-                if (allowedExtensions.length > 0 && !allowedExtensions.includes(extension)) {
-                    errors.push(`${file.name} has unsupported file type`);
-                    hasErrors = true;
-                    return;
-                }
-
-                selectedFiles.push(file);
-
-                // Add preview
-                const li = document.createElement('li');
-                li.className = 'list-group-item d-flex justify-content-between align-items-center';
-                li.innerHTML = `
-
-                    <div>
-                        <i class="bi bi-file me-2"></i>
-                        <span>${file.name}</span>
-                        <small class="text-muted ms-2">(${formatFileSize(file.size)})</small>
-                    </div>
-                    <button type="button" class="btn btn-sm btn-link text-danger" onclick="removeFile(${selectedFiles.length - 1})">
-                        <i class="bi bi-trash"></i>
-                    </button>
-                `;
-                filePreviewList.appendChild(li);
-            });
-
-            // Show/hide file list
-            if (selectedFiles.length > 0) {
-                fileList.style.display = 'block';
-            } else {
-                fileList.style.display = 'none';
-            }
-
-            // Display validation errors
-            if (errors.length > 0) {
-                errors.forEach(error => {
-                    showValidationError(error);
-                });
-            }
-
-            // Update the actual file input
-            const dataTransfer = new DataTransfer();
-            selectedFiles.forEach(file => dataTransfer.items.add(file));
-            fileInput.files = dataTransfer.files;
+    newFiles.forEach((file) => {
+        // Validate file size
+        if (file.size > maxSizeMB * 1024 * 1024) {
+            errors.push(`${file.name} exceeds maximum size of ${maxSizeMB}MB`);
+            hasErrors = true;
+            return;
         }
 
-        function removeFile(index) {
-            selectedFiles.splice(index, 1);
-            handleFiles(selectedFiles);
+        // Validate file type
+        const extension = '.' + file.name.split('.').pop().toLowerCase();
+        if (allowedExtensions.length > 0 && !allowedExtensions.includes(extension)) {
+            errors.push(`${file.name} has unsupported file type`);
+            hasErrors = true;
+            return;
         }
+
+        selectedFiles.push(file);
+    });
+
+    // Display validation errors
+    if (errors.length > 0) {
+        errors.forEach(error => {
+            showValidationError(error);
+        });
+    }
+
+    renderFileList();
+}
+
+function renderFileList() {
+    filePreviewList.innerHTML = '';
+
+    selectedFiles.forEach((file, index) => {
+        const li = document.createElement('li');
+        li.className = 'list-group-item d-flex justify-content-between align-items-center';
+        li.innerHTML = `
+            <div>
+                <i class="bi bi-file me-2"></i>
+                <span>${file.name}</span>
+                <small class="text-muted ms-2">(${formatFileSize(file.size)})</small>
+            </div>
+            <button type="button" class="btn btn-sm btn-link text-danger" onclick="removeFile(${index})">
+                <i class="bi bi-trash"></i>
+            </button>
+        `;
+        filePreviewList.appendChild(li);
+    });
+
+    // Show/hide file list
+    fileList.style.display = selectedFiles.length > 0 ? 'block' : 'none';
+
+    // Update the actual file input
+    const dataTransfer = new DataTransfer();
+    selectedFiles.forEach(file => dataTransfer.items.add(file));
+    fileInput.files = dataTransfer.files;
+}
+
+function removeFile(index) {
+    selectedFiles.splice(index, 1);
+    renderFileList();
+}
+
+          
 
         function formatFileSize(bytes) {
             if (bytes === 0) return '0 Bytes';

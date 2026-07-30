@@ -211,6 +211,7 @@ public class OfficerController : Controller
             await _unitOfWork.SaveChangesAsync();
 
             await _hub.Clients.Group(msg.CitizenUserId).SendAsync("ReceiveReply", msg.Id, reply);
+            await _hub.Clients.Group($"message-{msg.Id}").SendAsync("ReceiveReply", msg.Id, reply);
         }
         TempData["Success"] = "Reply sent.";
         return RedirectToAction("MessageDetails", new { id });

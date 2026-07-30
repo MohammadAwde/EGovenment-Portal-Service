@@ -28,3 +28,11 @@
         </form>
     </div>
 </div>
+<script src="https://cdn.jsdelivr.net/npm/@@microsoft/signalr@8.0.0/dist/browser/signalr.min.js"></script>
+<script>
+    const connection = new signalR.HubConnectionBuilder().withUrl("/supportHub").build();
+    connection.on("ReceiveReply", function (messageId, reply) { location.reload(); });
+    connection.start().then(function () {
+        connection.invoke("JoinMessageGroup", @Model.Id);
+    });
+</script>
