@@ -4,6 +4,7 @@ using Microsoft.AspNetCore.Identity;
 using Microsoft.AspNetCore.Authentication;
 using System.Security.Claims;
 using Microsoft.AspNetCore.Mvc;
+using Microsoft.AspNetCore.RateLimiting;
 using SmartEGov.Application.DTOs;
 using SmartEGov.Application.Services;
 using SmartEGov.Application.Interfaces;
@@ -135,6 +136,7 @@ public class AccountController : Controller
 
     [HttpPost]
     [ValidateAntiForgeryToken]
+    [EnableRateLimiting("auth")]
     public async Task<IActionResult> ForgotPassword(SmartEGov.Application.DTOs.ForgotPasswordDto model)
     {
         if (!ModelState.IsValid) return View(model);
@@ -205,6 +207,7 @@ public class AccountController : Controller
 
     [HttpPost]
     [ValidateAntiForgeryToken]
+    [EnableRateLimiting("auth")]
     public async Task<IActionResult> ResetPassword(SmartEGov.Application.DTOs.ResetPasswordDto model)
     {
         if (!ModelState.IsValid) return View(model);
@@ -254,6 +257,7 @@ public class AccountController : Controller
 
     [HttpPost]
     [ValidateAntiForgeryToken]
+    [EnableRateLimiting("auth")]
     public async Task<IActionResult> Register(RegisterDto model)
     {
         if (!ModelState.IsValid) return View(model);
@@ -338,6 +342,7 @@ public class AccountController : Controller
 
     [HttpPost]
     [ValidateAntiForgeryToken]
+    [EnableRateLimiting("auth")]
     public async Task<IActionResult> Login(LoginDto model, string? returnUrl = null)
     {
         ViewData["ReturnUrl"] = returnUrl;

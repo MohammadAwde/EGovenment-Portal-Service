@@ -416,3 +416,6 @@ FodyWeavers.xsd
 *.msix
 *.msm
 *.msp
+
+# Serilog rolling file output
+src/SmartEGov.Web/logs/

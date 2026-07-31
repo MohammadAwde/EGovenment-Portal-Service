@@ -612,7 +612,10 @@ public class ServiceRequestController : Controller
                 var uploadsFolder = Path.Combine(_environment.WebRootPath, "uploads", "completions");
                 Directory.CreateDirectory(uploadsFolder);
 
-                var uniqueFileName = $"{Guid.NewGuid()}_{completionFile.FileName}";
+                // SECURITY: Path.GetFileName strips any directory segments (including "..\" / "../")
+                // from the client-supplied file name so it cannot be used to write outside uploadsFolder.
+                var sanitizedFileName = Path.GetFileName(completionFile.FileName);
+                var uniqueFileName = $"{Guid.NewGuid()}_{sanitizedFileName}";
                 var filePath = Path.Combine(uploadsFolder, uniqueFileName);
 
                 using (var stream = new FileStream(filePath, FileMode.Create))
@@ -620,7 +623,7 @@ public class ServiceRequestController : Controller
                     await completionFile.CopyToAsync(stream);
                 }
 
-                completionFileName = completionFile.FileName;
+                completionFileName = sanitizedFileName;
                 completionFilePath = $"/uploads/completions/{uniqueFileName}";
             }
 
